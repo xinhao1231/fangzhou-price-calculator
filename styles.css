@@ -311,67 +311,6 @@ h2 {
   overflow: hidden;
 }
 
-.product-visual {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  align-items: center;
-  gap: 20px;
-  min-height: 164px;
-  padding: 20px;
-  background: #20313a;
-}
-
-.visual-bin {
-  position: relative;
-  width: 94px;
-  height: 108px;
-  margin: auto;
-  border-radius: 8px 8px 14px 14px;
-  background: linear-gradient(160deg, #f4c95d 0%, #d96d4b 100%);
-}
-
-.visual-bin::before {
-  content: "";
-  position: absolute;
-  left: -8px;
-  right: -8px;
-  top: -16px;
-  height: 20px;
-  border-radius: 8px;
-  background: #f8d978;
-}
-
-.visual-bin span {
-  position: absolute;
-  left: 50%;
-  bottom: -12px;
-  width: 64px;
-  height: 16px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateX(-50%);
-}
-
-.visual-lines {
-  display: grid;
-  gap: 11px;
-}
-
-.visual-lines i {
-  display: block;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.visual-lines i:nth-child(2) {
-  width: 74%;
-}
-
-.visual-lines i:nth-child(3) {
-  width: 48%;
-}
-
 .summary-header,
 .result-list,
 .summary-section-title,
@@ -469,42 +408,169 @@ h2 {
 
 @media (max-width: 700px) {
   .app-shell {
-    width: min(100% - 22px, 540px);
-    padding: 12px 0 20px;
-    gap: 12px;
+    width: min(100% - 14px, 540px);
+    padding: 7px 0 14px;
+    gap: 8px;
   }
 
   .topbar {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
     min-height: auto;
-    padding: 16px;
+    padding: 11px 12px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 17px;
+  }
+
+  .eyebrow {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .status-pill {
+    min-width: 76px;
+    padding: 7px 9px;
+    font-size: 12px;
   }
 
   .panel {
-    padding: 14px;
+    padding: 10px;
+  }
+
+  .section-head {
+    margin-bottom: 9px;
   }
 
   .product-grid,
-  .option-grid,
   .modifier-grid,
-  .form-grid,
   .actions,
   .data-tools {
     grid-template-columns: 1fr;
   }
 
+  .option-grid,
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-grid,
+  .option-grid,
+  .modifier-grid {
+    gap: 7px;
+  }
+
   .choice-card {
-    min-height: 92px;
+    min-height: 66px;
+    padding: 10px;
   }
 
-  .product-visual {
-    grid-template-columns: 92px 1fr;
-    min-height: 136px;
+  .choice-card strong {
+    font-size: 15px;
   }
 
-  .visual-bin {
-    width: 72px;
-    height: 86px;
+  .choice-card span {
+    font-size: 12px;
+  }
+
+  .option-button,
+  .modifier-button {
+    min-height: 44px;
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  .modifier-wrap {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .modifier-group + .modifier-group {
+    margin-top: 10px;
+  }
+
+  .modifier-title {
+    margin-bottom: 7px;
+    font-size: 12px;
+  }
+
+  .form-grid {
+    gap: 8px;
+  }
+
+  .field {
+    gap: 5px;
+  }
+
+  .field span {
+    font-size: 12px;
+  }
+
+  .field input,
+  .field select,
+  .checkbox-row {
+    min-height: 42px;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .actions {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 42px;
+    padding: 9px 12px;
+  }
+
+  .summary-header,
+  .result-list,
+  .summary-section-title,
+  .quote-box,
+  .data-tools {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .summary-header {
+    margin-top: 12px;
+  }
+
+  .summary-section-title {
+    margin-top: 10px;
+    font-size: 14px;
+  }
+
+  .result-list {
+    gap: 0;
+    margin-top: 5px;
+  }
+
+  .result-list div {
+    padding: 8px 0;
+  }
+
+  .result-list dt {
+    font-size: 12px;
+  }
+
+  .result-list dd {
+    font-size: 15px;
+    max-width: 62%;
+  }
+
+  .quote-box {
+    display: none;
+  }
+
+  .data-tools {
+    padding-bottom: 12px;
   }
 }
