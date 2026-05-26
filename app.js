@@ -6,6 +6,21 @@ const CONTAINERS = {
   "40nor": { label: "40NOR", volume: 58, price: 6800 }
 };
 
+const EXCHANGE_RATE_PROVIDERS = [
+  {
+    url: "https://api.frankfurter.app/latest?from=USD&to=CNY",
+    parse: (data) => ({ rate: Number(data?.rates?.CNY), date: data?.date })
+  },
+  {
+    url: "https://open.er-api.com/v6/latest/USD",
+    parse: (data) => ({ rate: Number(data?.rates?.CNY), date: data?.time_last_update_utc?.slice(0, 16) })
+  },
+  {
+    url: "https://api.exchangerate-api.com/v4/latest/USD",
+    parse: (data) => ({ rate: Number(data?.rates?.CNY), date: data?.date })
+  }
+];
+
 const PACKAGING_GROUP = {
   id: "packaging",
   title: "包装选择",
@@ -412,6 +427,8 @@ const elements = {
   quantity: document.querySelector("#quantity"),
   extraCost: document.querySelector("#extraCost"),
   exchangeRate: document.querySelector("#exchangeRate"),
+  refreshExchangeRate: document.querySelector("#refreshExchangeRate"),
+  exchangeRateStatus: document.querySelector("#exchangeRateStatus"),
   containerType: document.querySelector("#containerType"),
   includeFob: document.querySelector("#includeFob"),
   selectedName: document.querySelector("#selectedName"),
@@ -701,6 +718,38 @@ function numberFromInput(input, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function setExchangeRateStatus(text) {
+  elements.exchangeRateStatus.textContent = text;
+}
+
+async function updateExchangeRate(isAutomatic = false) {
+  setExchangeRateStatus(isAutomatic ? "正在自动更新..." : "正在更新...");
+  try {
+    let latest = null;
+    for (const provider of EXCHANGE_RATE_PROVIDERS) {
+      try {
+        const response = await fetch(provider.url, { cache: "no-store" });
+        if (!response.ok) continue;
+        const parsed = provider.parse(await response.json());
+        if (Number.isFinite(parsed.rate) && parsed.rate > 0) {
+          latest = parsed;
+          break;
+        }
+      } catch {
+        // Try the next provider.
+      }
+    }
+    if (!latest) throw new Error("No exchange rate provider available");
+
+    elements.exchangeRate.value = latest.rate.toFixed(4);
+    state.exchangeRate = latest.rate;
+    setExchangeRateStatus(`已更新 ${latest.date || "最新"}`);
+    renderSummary();
+  } catch {
+    setExchangeRateStatus(isAutomatic ? "自动更新失败，可手动输入" : "更新失败，可手动输入");
+  }
+}
+
 function renderProducts() {
   elements.productGrid.innerHTML = "";
   state.products.forEach((product) => {
@@ -914,6 +963,10 @@ function bindInputs() {
     renderSummary();
   });
 
+  elements.refreshExchangeRate.addEventListener("click", () => {
+    updateExchangeRate(false);
+  });
+
   elements.savePrice.addEventListener("click", () => {
     saveCurrentPrice(numberFromInput(elements.unitPrice));
     persistProducts();
@@ -979,4 +1032,5 @@ if ("serviceWorker" in navigator) {
 bindInputs();
 syncUnitPrice();
 render();
+updateExchangeRate(true);
 persistProducts();
