@@ -1,9 +1,0 @@
-{
-  "name": "方舟产品价格计算器",
-  "short_name": "价格计算器",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f4f7f8",
-  "theme_color": "#1f4e5f",
-  "icons": []
-}
