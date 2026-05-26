@@ -248,15 +248,15 @@ h2 {
 
 .exchange-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 54px;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
 .exchange-control button {
-  min-height: 48px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--mint);
   color: var(--brand-strong);
   font-size: 13px;
   font-weight: 900;
@@ -545,7 +545,7 @@ h2 {
   }
 
   .exchange-control {
-    grid-template-columns: minmax(0, 1fr) 50px;
+    grid-template-columns: 1fr;
   }
 
   .actions {
