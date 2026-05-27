@@ -1,4 +1,4 @@
-const CACHE_NAME = "fangzhou-price-calculator-v1";
+const CACHE_NAME = "fangzhou-price-calculator-v2";
 const ASSETS = [
   "./",
   "./index.html",

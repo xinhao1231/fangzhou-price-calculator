@@ -89,6 +89,7 @@
 
           <div class="actions">
             <button class="primary-button" id="savePrice" type="button">保存当前单价</button>
+            <button class="secondary-button" id="addMixedItem" type="button">加入混装</button>
             <button class="secondary-button" id="copyQuote" type="button">复制报价</button>
           </div>
         </section>
@@ -159,6 +160,29 @@
             <dd id="containerUnits">待填写</dd>
           </div>
         </dl>
+
+        <section class="mixed-fob" aria-label="混装FOB">
+          <div class="mixed-head">
+            <h3 class="summary-section-title">混装FOB</h3>
+            <button class="text-button" id="clearMixedItems" type="button">清空</button>
+          </div>
+          <div class="mixed-stats">
+            <div>
+              <span>总CBM</span>
+              <strong id="mixedTotalCbm">0.000</strong>
+            </div>
+            <div>
+              <span>货柜占用</span>
+              <strong id="mixedContainerUsage">0%</strong>
+            </div>
+            <div>
+              <span>分摊运费</span>
+              <strong id="mixedFreightTotal">¥0.00</strong>
+            </div>
+          </div>
+          <div class="mixed-list" id="mixedList"></div>
+          <p class="mixed-empty" id="mixedEmpty">把产品加入混装后，这里会按总CBM分摊FOB费用。</p>
+        </section>
 
         <div class="quote-box" id="quoteText"></div>
 

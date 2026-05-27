@@ -1,4 +1,5 @@
 const STORAGE_KEY = "fangzhou-price-calculator-v11";
+const MIX_STORAGE_KEY = "fangzhou-price-calculator-mixed-v1";
 
 const CONTAINERS = {
   "20gp": { label: "20GP", volume: 28, price: 3800 },
@@ -415,7 +416,8 @@ const state = {
   extraCost: 0,
   exchangeRate: 7.2,
   containerId: "40hq",
-  includeFob: false
+  includeFob: false,
+  mixedItems: loadMixedItems()
 };
 
 const elements = {
@@ -441,6 +443,13 @@ const elements = {
   fobTotalCny: document.querySelector("#fobTotalCny"),
   fobTotalUsd: document.querySelector("#fobTotalUsd"),
   containerUnits: document.querySelector("#containerUnits"),
+  addMixedItem: document.querySelector("#addMixedItem"),
+  clearMixedItems: document.querySelector("#clearMixedItems"),
+  mixedTotalCbm: document.querySelector("#mixedTotalCbm"),
+  mixedContainerUsage: document.querySelector("#mixedContainerUsage"),
+  mixedFreightTotal: document.querySelector("#mixedFreightTotal"),
+  mixedList: document.querySelector("#mixedList"),
+  mixedEmpty: document.querySelector("#mixedEmpty"),
   resultQty: document.querySelector("#resultQty"),
   cartonSpec: document.querySelector("#cartonSpec"),
   cartonQty: document.querySelector("#cartonQty"),
@@ -480,6 +489,26 @@ function loadProducts() {
     localStorage.removeItem(STORAGE_KEY);
   }
   return structuredClone(initialProducts);
+}
+
+function loadMixedItems() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MIX_STORAGE_KEY) || "[]");
+    if (!Array.isArray(saved)) return [];
+    return saved
+      .filter((item) => item && item.name && Number.isFinite(Number(item.quantity)))
+      .map((item, index) => ({
+        ...item,
+        id: item.id || `saved-${Date.now()}-${index}`,
+        quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function persistMixedItems() {
+  localStorage.setItem(MIX_STORAGE_KEY, JSON.stringify(state.mixedItems));
 }
 
 function mergeSavedProducts(savedProducts) {
@@ -649,12 +678,15 @@ function selectedPackagingId() {
   return state.configSelections.packaging || "no-color-box";
 }
 
-function packagingCostPerUnit(quantity) {
-  const packagingId = selectedPackagingId();
+function packagingCostById(packagingId, quantity) {
   if (packagingId === "color-box") return 400 / quantity + 0.2;
   if (packagingId === "thick-box") return 0.3;
   if (packagingId === "thick-color-box") return 400 / quantity + 0.2 + 0.3;
   return 0;
+}
+
+function packagingCostPerUnit(quantity) {
+  return packagingCostById(selectedPackagingId(), quantity);
 }
 
 function fobInfo(logisticsInfo) {
@@ -882,13 +914,157 @@ function calculate() {
   };
 }
 
-function renderSummary() {
+function currentSelectionLabel() {
   const product = currentProduct();
   const option = currentOption();
   const configItems = selectedConfigItems();
+  return [product.name, option.label, ...configItems.map((item) => item.label)].join(" · ");
+}
+
+function addCurrentToMixed() {
+  const logisticsInfo = currentLogistics();
+  if (!logisticsInfo?.cbm || !logisticsInfo?.cartonQty) {
+    flashSaved("这个产品缺少外箱资料");
+    return;
+  }
+
+  const result = calculate();
+  const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  state.mixedItems.push({
+    id,
+    name: currentSelectionLabel(),
+    quantity: result.quantity,
+    unitPrice: result.unitPrice,
+    packagingId: selectedPackagingId(),
+    logistics: {
+      cartonQty: logisticsInfo.cartonQty,
+      cartonSpec: logisticsInfo.cartonSpec,
+      unitWeight: logisticsInfo.unitWeight,
+      cbm: logisticsInfo.cbm
+    }
+  });
+  persistMixedItems();
+  renderMixedFob();
+  flashSaved("已加入混装");
+}
+
+function calculateMixedFob() {
+  const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+  const lines = state.mixedItems.map((item) => {
+    const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
+    const cartonQty = Number(item.logistics?.cartonQty) || 0;
+    const cartonCbm = Number(item.logistics?.cbm) || 0;
+    const totalCbm = cartonQty && cartonCbm ? (quantity / cartonQty) * cartonCbm : 0;
+    const packagingCost = packagingCostById(item.packagingId, quantity);
+    const baseUnitCost = Number(item.unitPrice || 0) + packagingCost;
+    return {
+      ...item,
+      quantity,
+      totalCbm,
+      packagingCost,
+      baseUnitCost,
+      freightShare: 0,
+      freightTotal: 0,
+      freightPerUnit: 0,
+      fobUnitPrice: baseUnitCost,
+      fobTotalPrice: baseUnitCost * quantity
+    };
+  });
+
+  const totalCbm = lines.reduce((sum, line) => sum + line.totalCbm, 0);
+  lines.forEach((line) => {
+    if (!totalCbm || !line.totalCbm) return;
+    line.freightShare = line.totalCbm / totalCbm;
+    line.freightTotal = container.price * line.freightShare;
+    line.freightPerUnit = line.freightTotal / line.quantity;
+    line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
+    line.fobTotalPrice = line.fobUnitPrice * line.quantity;
+  });
+
+  return {
+    container,
+    lines,
+    totalCbm,
+    usage: container.volume ? totalCbm / container.volume : 0,
+    freightTotal: totalCbm ? container.price : 0
+  };
+}
+
+function renderMixedFob() {
+  const mixed = calculateMixedFob();
+  elements.mixedTotalCbm.textContent = mixed.totalCbm.toFixed(3);
+  elements.mixedContainerUsage.textContent = `${Math.round(mixed.usage * 100)}%`;
+  elements.mixedContainerUsage.dataset.warning = mixed.usage > 1 ? "true" : "false";
+  elements.mixedFreightTotal.textContent = formatCny(mixed.freightTotal);
+  elements.mixedList.innerHTML = "";
+  elements.mixedEmpty.hidden = state.mixedItems.length > 0;
+
+  mixed.lines.forEach((line) => {
+    const row = document.createElement("article");
+    row.className = "mixed-item";
+
+    const main = document.createElement("div");
+    main.className = "mixed-item-main";
+    const title = document.createElement("strong");
+    title.textContent = line.name;
+    const meta = document.createElement("span");
+    meta.textContent = `外箱 ${line.logistics?.cartonSpec || "待填写"} · ${line.logistics?.cartonQty || "待填写"} / 箱`;
+    main.append(title, meta);
+
+    const quantityLabel = document.createElement("label");
+    quantityLabel.className = "mixed-quantity";
+    const quantityText = document.createElement("span");
+    quantityText.textContent = "数量";
+    const quantityInput = document.createElement("input");
+    quantityInput.type = "number";
+    quantityInput.min = "1";
+    quantityInput.step = "1";
+    quantityInput.value = String(line.quantity);
+    quantityInput.addEventListener("change", () => {
+      line.quantity = Math.max(1, Math.round(Number(quantityInput.value) || 1));
+      const saved = state.mixedItems.find((item) => item.id === line.id);
+      if (saved) saved.quantity = line.quantity;
+      persistMixedItems();
+      renderMixedFob();
+    });
+    quantityLabel.append(quantityText, quantityInput);
+
+    const stats = document.createElement("dl");
+    stats.className = "mixed-line-stats";
+    [
+      ["总CBM", line.totalCbm.toFixed(3)],
+      ["FOB/个", formatCny(line.freightPerUnit)],
+      ["FOB后单价", formatCny(line.fobUnitPrice)]
+    ].forEach(([label, value]) => {
+      const div = document.createElement("div");
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = label;
+      dd.textContent = value;
+      div.append(dt, dd);
+      stats.append(div);
+    });
+
+    const remove = document.createElement("button");
+    remove.className = "text-button";
+    remove.type = "button";
+    remove.textContent = "删除";
+    remove.addEventListener("click", () => {
+      state.mixedItems = state.mixedItems.filter((item) => item.id !== line.id);
+      persistMixedItems();
+      renderMixedFob();
+    });
+
+    row.append(main, quantityLabel, stats, remove);
+    elements.mixedList.append(row);
+  });
+}
+
+function renderSummary() {
   const result = calculate();
   const logisticsInfo = currentLogistics();
-  const selected = [product.name, option.label, ...configItems.map((item) => item.label)].join(" · ");
+  const selected = currentSelectionLabel();
+  const mixed = calculateMixedFob();
 
   elements.selectedName.textContent = selected;
   elements.totalCny.textContent = formatCny(result.totalCny);
@@ -918,8 +1094,11 @@ function renderSummary() {
     `FOB单个价格：${result.fobUnitWithMargin === null ? "待填写" : formatCny(result.fobUnitWithMargin)}`,
     `FOB人民币总价：${result.fobTotalCny === null ? "待填写" : formatCny(result.fobTotalCny)}`,
     `货柜可装：${result.fobUnits ? `${Math.floor(result.fobUnits).toLocaleString("zh-CN")} 件` : "待填写"}`,
+    `混装总CBM：${mixed.totalCbm.toFixed(3)}`,
+    `混装货柜占用：${Math.round(mixed.usage * 100)}%`,
     `合计：${formatCny(result.totalCny)}（约 ${formatUsd(result.totalUsd)}）`
   ].join("\n");
+  renderMixedFob();
 }
 
 function render() {
@@ -967,6 +1146,15 @@ function bindInputs() {
     updateExchangeRate(false);
   });
 
+  elements.addMixedItem.addEventListener("click", addCurrentToMixed);
+
+  elements.clearMixedItems.addEventListener("click", () => {
+    state.mixedItems = [];
+    persistMixedItems();
+    renderMixedFob();
+    flashSaved("混装已清空");
+  });
+
   elements.savePrice.addEventListener("click", () => {
     saveCurrentPrice(numberFromInput(elements.unitPrice));
     persistProducts();
@@ -993,7 +1181,7 @@ function bindInputs() {
   });
 
   elements.exportData.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify({ products: state.products }, null, 2)], {
+    const blob = new Blob([JSON.stringify({ products: state.products, mixedItems: state.mixedItems }, null, 2)], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
@@ -1011,10 +1199,12 @@ function bindInputs() {
       const imported = JSON.parse(await file.text());
       if (!Array.isArray(imported.products)) throw new Error("Invalid data");
       state.products = imported.products;
+      state.mixedItems = Array.isArray(imported.mixedItems) ? imported.mixedItems : state.mixedItems;
       state.productId = state.products[0].id;
       selectFirstOption(state.products[0]);
       syncUnitPrice();
       persistProducts();
+      persistMixedItems();
       render();
       flashSaved("导入成功");
     } catch {
