@@ -1,9 +1,9 @@
-const CACHE_NAME = "fangzhou-price-calculator-v2";
+const CACHE_NAME = "fangzhou-price-calculator-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
+  "./styles.css?v=20260528-3",
+  "./app.js?v=20260528-3",
   "./manifest.webmanifest"
 ];
 

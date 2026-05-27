@@ -37,16 +37,16 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 22px;
-  width: min(1180px, calc(100% - 32px));
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 16px;
+  width: min(1400px, calc(100% - 36px));
   margin: 0 auto;
-  padding: 24px 0;
+  padding: 16px 0;
 }
 
 .workspace {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .topbar,
@@ -63,8 +63,8 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 98px;
-  padding: 20px;
+  min-height: 74px;
+  padding: 15px 16px;
 }
 
 .eyebrow {
@@ -83,7 +83,7 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(26px, 2.4vw, 34px);
   line-height: 1.05;
 }
 
@@ -105,7 +105,7 @@ h2 {
 }
 
 .panel {
-  padding: 18px;
+  padding: 14px;
 }
 
 .section-head {
@@ -113,7 +113,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .icon-button {
@@ -177,8 +177,8 @@ h2 {
 
 .choice-card {
   display: grid;
-  min-height: 126px;
-  padding: 14px;
+  min-height: 92px;
+  padding: 12px;
   text-align: left;
 }
 
@@ -212,15 +212,16 @@ h2 {
 
 .option-button,
 .modifier-button {
-  min-height: 56px;
-  padding: 10px;
+  min-height: 48px;
+  padding: 9px 10px;
   font-weight: 800;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: 1.25fr 0.7fr 1fr 1.6fr 0.9fr 0.8fr;
   gap: 10px;
+  align-items: start;
 }
 
 .field {
@@ -248,12 +249,12 @@ h2 {
 
 .exchange-control {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) 112px;
   gap: 6px;
 }
 
 .exchange-control button {
-  min-height: 38px;
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--mint);
@@ -345,7 +346,7 @@ h2 {
 
 .summary {
   position: sticky;
-  top: 24px;
+  top: 16px;
   align-self: start;
   overflow: hidden;
 }
@@ -550,6 +551,47 @@ h2 {
   cursor: pointer;
 }
 
+@media (min-width: 1100px) {
+  .workspace {
+    grid-template-columns: 290px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .topbar,
+  .calculator-panel {
+    grid-column: 1 / -1;
+  }
+
+  .product-panel {
+    grid-column: 1;
+  }
+
+  .option-panel {
+    grid-column: 2;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-card {
+    min-height: 64px;
+    align-content: center;
+  }
+
+  .choice-card span {
+    margin-top: 5px;
+  }
+
+  .option-grid {
+    grid-template-columns: repeat(5, minmax(92px, 1fr));
+  }
+
+  .modifier-grid {
+    grid-template-columns: repeat(3, minmax(110px, 1fr));
+  }
+}
+
 @media (max-width: 960px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -561,6 +603,14 @@ h2 {
 
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exchange-control {
+    grid-template-columns: 1fr;
+  }
+
+  .exchange-control button {
+    min-height: 42px;
   }
 }
 
