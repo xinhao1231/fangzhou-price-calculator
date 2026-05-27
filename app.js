@@ -306,7 +306,7 @@ const initialProducts = [
           "black-white-silver-bamboo-lid": logistics(12, "60*46*63", "930g", 0.17388)
         })
       },
-      { id: "sensor", label: "感应垃圾桶", price: 180, logistics: logistics(1, "61*41*22.5 / 45*45*65", "7000g", 0.1878975) }
+      { id: "sensor", label: "感应垃圾桶", price: 180, logistics: logistics(1, "61*41*22.5", "7000g", 0.0562725) }
     ]
   },
   {
