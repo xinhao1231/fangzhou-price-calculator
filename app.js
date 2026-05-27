@@ -497,7 +497,7 @@ function loadMixedItems() {
     if (!Array.isArray(saved)) return [];
     return saved
       .filter((item) => item && item.name && Number.isFinite(Number(item.quantity)))
-      .map((item, index) => ({
+      .map((item, index) => normalizeMixedItem({
         ...item,
         id: item.id || `saved-${Date.now()}-${index}`,
         quantity: Math.max(1, Math.round(Number(item.quantity) || 1))
@@ -505,6 +505,20 @@ function loadMixedItems() {
   } catch {
     return [];
   }
+}
+
+function normalizeMixedItem(item) {
+  if (!item.name?.includes("感应垃圾桶")) return item;
+  return {
+    ...item,
+    logistics: {
+      ...(item.logistics || {}),
+      cartonQty: 1,
+      cartonSpec: "61*41*22.5",
+      unitWeight: "7000g",
+      cbm: 0.0562725
+    }
+  };
 }
 
 function persistMixedItems() {
@@ -950,7 +964,8 @@ function addCurrentToMixed() {
 
 function calculateMixedFob() {
   const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
-  const lines = state.mixedItems.map((item) => {
+  const lines = state.mixedItems.map((rawItem) => {
+    const item = normalizeMixedItem(rawItem);
     const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
     const cartonQty = Number(item.logistics?.cartonQty) || 0;
     const cartonCbm = Number(item.logistics?.cbm) || 0;
@@ -1198,8 +1213,13 @@ function bindInputs() {
     try {
       const imported = JSON.parse(await file.text());
       if (!Array.isArray(imported.products)) throw new Error("Invalid data");
-      state.products = imported.products;
-      state.mixedItems = Array.isArray(imported.mixedItems) ? imported.mixedItems : state.mixedItems;
+      state.products = mergeSavedProducts(imported.products);
+      state.mixedItems = Array.isArray(imported.mixedItems)
+        ? imported.mixedItems.map((item, index) => normalizeMixedItem({
+            ...item,
+            id: item.id || `imported-${Date.now()}-${index}`
+          }))
+        : state.mixedItems;
       state.productId = state.products[0].id;
       selectFirstOption(state.products[0]);
       syncUnitPrice();
@@ -1216,7 +1236,15 @@ function bindInputs() {
 }
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => registration.unregister());
+  }).catch(() => {});
+}
+
+if ("caches" in window) {
+  caches.keys().then((keys) => {
+    keys.forEach((key) => caches.delete(key));
+  }).catch(() => {});
 }
 
 bindInputs();
