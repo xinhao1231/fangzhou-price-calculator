@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260528-4">
+    <link rel="stylesheet" href="styles.css?v=20260603-1">
   </head>
   <body>
     <main class="app-shell">
@@ -53,6 +53,10 @@
             <label class="field">
               <span>单价（人民币）</span>
               <input id="unitPrice" inputmode="decimal" min="0" step="0.01" type="number" placeholder="先填 0，后面录入真实价格">
+            </label>
+            <label class="field">
+              <span>优惠后单价（可选）</span>
+              <input id="discountPrice" inputmode="decimal" min="0" step="0.01" type="number" placeholder="不填则按原单价">
             </label>
             <label class="field">
               <span>数量</span>
@@ -148,6 +152,10 @@
             <dd id="fobUnitWithMargin">待填写</dd>
           </div>
           <div>
+            <dt>FOB单个美元</dt>
+            <dd id="fobUnitUsd">待填写</dd>
+          </div>
+          <div>
             <dt>FOB人民币总价</dt>
             <dd id="fobTotalCny">待填写</dd>
           </div>
@@ -196,6 +204,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260528-4"></script>
+    <script src="app.js?v=20260603-1"></script>
   </body>
 </html>

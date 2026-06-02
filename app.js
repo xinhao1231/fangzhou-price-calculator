@@ -426,6 +426,7 @@ const elements = {
   optionTitle: document.querySelector("#optionTitle"),
   modifierWrap: document.querySelector("#modifierWrap"),
   unitPrice: document.querySelector("#unitPrice"),
+  discountPrice: document.querySelector("#discountPrice"),
   quantity: document.querySelector("#quantity"),
   extraCost: document.querySelector("#extraCost"),
   exchangeRate: document.querySelector("#exchangeRate"),
@@ -440,6 +441,7 @@ const elements = {
   packagingCost: document.querySelector("#packagingCost"),
   fobCost: document.querySelector("#fobCost"),
   fobUnitWithMargin: document.querySelector("#fobUnitWithMargin"),
+  fobUnitUsd: document.querySelector("#fobUnitUsd"),
   fobTotalCny: document.querySelector("#fobTotalCny"),
   fobTotalUsd: document.querySelector("#fobTotalUsd"),
   containerUnits: document.querySelector("#containerUnits"),
@@ -886,7 +888,10 @@ function calculate() {
   state.includeFob = elements.includeFob.checked;
   const logisticsInfo = currentLogistics();
   const currentFobInfo = fobInfo(logisticsInfo);
-  const unitPrice = numberFromInput(elements.unitPrice);
+  const savedUnitPrice = numberFromInput(elements.unitPrice);
+  const discountInput = elements.discountPrice.value.trim();
+  const discountPrice = discountInput === "" ? null : Math.max(0, numberFromInput(elements.discountPrice));
+  const unitPrice = discountPrice === null ? savedUnitPrice : discountPrice;
   const quantity = Math.max(1, Math.round(numberFromInput(elements.quantity, 1)));
   const margin = 0;
   const extraCost = Math.max(0, numberFromInput(elements.extraCost));
@@ -900,6 +905,7 @@ function calculate() {
   const totalUsd = totalCny / exchangeRate;
   const fobUnitCost = baseUnitCost + fobCost;
   const fobUnitWithMargin = currentFobInfo ? fobUnitCost * (1 + margin / 100) : null;
+  const fobUnitUsd = fobUnitWithMargin === null ? null : fobUnitWithMargin / exchangeRate;
   const fobTotalCny = fobUnitWithMargin === null ? null : fobUnitWithMargin * quantity + extraCost;
   const fobTotalUsd = fobTotalCny === null ? null : fobTotalCny / exchangeRate;
 
@@ -909,6 +915,8 @@ function calculate() {
   state.exchangeRate = exchangeRate;
 
   return {
+    savedUnitPrice,
+    discountPrice,
     unitPrice,
     packagingCost,
     fobCost,
@@ -923,6 +931,7 @@ function calculate() {
     totalCny,
     totalUsd,
     fobUnitWithMargin,
+    fobUnitUsd,
     fobTotalCny,
     fobTotalUsd
   };
@@ -1088,6 +1097,7 @@ function renderSummary() {
   elements.packagingCost.textContent = formatCny(result.packagingCost);
   elements.fobCost.textContent = result.fobUnits ? formatCny(result.fobCost) : "待填写";
   elements.fobUnitWithMargin.textContent = result.fobUnitWithMargin === null ? "待填写" : formatCny(result.fobUnitWithMargin);
+  elements.fobUnitUsd.textContent = result.fobUnitUsd === null ? "待填写" : formatUsd(result.fobUnitUsd);
   elements.fobTotalCny.textContent = result.fobTotalCny === null ? "待填写" : formatCny(result.fobTotalCny);
   elements.fobTotalUsd.textContent = result.fobTotalUsd === null ? "待填写" : formatUsd(result.fobTotalUsd);
   elements.containerUnits.textContent = result.fobUnits ? `${Math.floor(result.fobUnits).toLocaleString("zh-CN")} 件` : "待填写";
@@ -1097,7 +1107,9 @@ function renderSummary() {
   elements.unitWeight.textContent = logisticsInfo?.unitWeight || "待填写";
   elements.quoteText.textContent = [
     `产品：${selected}`,
-    `产品单价：${formatCny(result.unitPrice)}`,
+    `原单价：${formatCny(result.savedUnitPrice)}`,
+    `优惠后单价：${result.discountPrice === null ? "未使用" : formatCny(result.discountPrice)}`,
+    `计入计算单价：${formatCny(result.unitPrice)}`,
     `包装加价/个：${formatCny(result.packagingCost)}`,
     `计价单价：${formatCny(result.unitCost)}`,
     `数量：${result.quantity}`,
@@ -1107,6 +1119,7 @@ function renderSummary() {
     `单个重量：${logisticsInfo?.unitWeight || "待填写"}`,
     `FOB费用/个：${result.fobUnits ? formatCny(result.fobCost) : "待填写"}`,
     `FOB单个价格：${result.fobUnitWithMargin === null ? "待填写" : formatCny(result.fobUnitWithMargin)}`,
+    `FOB单个美元：${result.fobUnitUsd === null ? "待填写" : formatUsd(result.fobUnitUsd)}`,
     `FOB人民币总价：${result.fobTotalCny === null ? "待填写" : formatCny(result.fobTotalCny)}`,
     `货柜可装：${result.fobUnits ? `${Math.floor(result.fobUnits).toLocaleString("zh-CN")} 件` : "待填写"}`,
     `混装总CBM：${mixed.totalCbm.toFixed(3)}`,
@@ -1136,7 +1149,7 @@ function exposeSavedData() {
 }
 
 function bindInputs() {
-  [elements.unitPrice, elements.quantity, elements.extraCost, elements.exchangeRate].forEach((input) => {
+  [elements.unitPrice, elements.discountPrice, elements.quantity, elements.extraCost, elements.exchangeRate].forEach((input) => {
     input.addEventListener("input", renderSummary);
   });
 
