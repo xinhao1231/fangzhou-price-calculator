@@ -35,6 +35,17 @@ const PACKAGING_GROUP = {
   ]
 };
 
+const PACKAGING_SIZE_ADDONS = {
+  "3l": { colorBox: 0.2, thickBox: 0.3 },
+  "5l": { colorBox: 0.45, thickBox: 0.4 },
+  "8l": { colorBox: 0.55, thickBox: 0.5 },
+  "12l": { colorBox: 0.5, thickBox: 0.6 },
+  "20l": { colorBox: 1, thickBox: 0.7 },
+  "30l": { colorBox: 1.5, thickBox: 1 }
+};
+
+const DEFAULT_PACKAGING_ADDONS = PACKAGING_SIZE_ADDONS["3l"];
+
 const INDOOR_FULL_SIZES = [
   { id: "3l", label: "3L" },
   { id: "5l", label: "5L" },
@@ -510,11 +521,16 @@ function loadMixedItems() {
 }
 
 function normalizeMixedItem(item) {
-  if (!item.name?.includes("感应垃圾桶")) return item;
-  return {
+  const normalized = {
     ...item,
+    nested: Boolean(item.nested),
+    packagingSize: item.packagingSize || inferPackagingSizeFromName(item.name)
+  };
+  if (!normalized.name?.includes("感应垃圾桶")) return normalized;
+  return {
+    ...normalized,
     logistics: {
-      ...(item.logistics || {}),
+      ...(normalized.logistics || {}),
       cartonQty: 1,
       cartonSpec: "61*41*22.5",
       unitWeight: "7000g",
@@ -694,15 +710,34 @@ function selectedPackagingId() {
   return state.configSelections.packaging || "no-color-box";
 }
 
-function packagingCostById(packagingId, quantity) {
-  if (packagingId === "color-box") return 400 / quantity + 0.2;
-  if (packagingId === "thick-box") return 0.3;
-  if (packagingId === "thick-color-box") return 400 / quantity + 0.2 + 0.3;
+function currentPackagingSize() {
+  const product = currentProduct();
+  const option = currentOption();
+  if (product.id === "indoor-bin" && option.id === "square") return "5l";
+  if (product.id === "indoor-bin" && state.configSelections.size) return state.configSelections.size;
+  return null;
+}
+
+function packagingAddonsFor(sizeId) {
+  return PACKAGING_SIZE_ADDONS[sizeId] || DEFAULT_PACKAGING_ADDONS;
+}
+
+function inferPackagingSizeFromName(name = "") {
+  if (name.includes("方形垃圾桶")) return "5l";
+  const match = name.match(/(?:^|[^0-9])(?:3|5|8|12|20|30)L/i);
+  return match ? match[0].replace(/[^0-9]/g, "") + "l" : null;
+}
+
+function packagingCostById(packagingId, quantity, sizeId = null) {
+  const addons = packagingAddonsFor(sizeId);
+  if (packagingId === "color-box") return 400 / quantity + addons.colorBox;
+  if (packagingId === "thick-box") return addons.thickBox;
+  if (packagingId === "thick-color-box") return 400 / quantity + addons.colorBox + addons.thickBox;
   return 0;
 }
 
 function packagingCostPerUnit(quantity) {
-  return packagingCostById(selectedPackagingId(), quantity);
+  return packagingCostById(selectedPackagingId(), quantity, currentPackagingSize());
 }
 
 function fobInfo(logisticsInfo) {
@@ -959,6 +994,8 @@ function addCurrentToMixed() {
     quantity: result.quantity,
     unitPrice: result.unitPrice,
     packagingId: selectedPackagingId(),
+    packagingSize: currentPackagingSize(),
+    nested: false,
     logistics: {
       cartonQty: logisticsInfo.cartonQty,
       cartonSpec: logisticsInfo.cartonSpec,
@@ -978,12 +1015,14 @@ function calculateMixedFob() {
     const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
     const cartonQty = Number(item.logistics?.cartonQty) || 0;
     const cartonCbm = Number(item.logistics?.cbm) || 0;
-    const totalCbm = cartonQty && cartonCbm ? (quantity / cartonQty) * cartonCbm : 0;
-    const packagingCost = packagingCostById(item.packagingId, quantity);
+    const nested = Boolean(item.nested);
+    const totalCbm = nested ? 0 : cartonQty && cartonCbm ? (quantity / cartonQty) * cartonCbm : 0;
+    const packagingCost = packagingCostById(item.packagingId, quantity, item.packagingSize || inferPackagingSizeFromName(item.name));
     const baseUnitCost = Number(item.unitPrice || 0) + packagingCost;
     return {
       ...item,
       quantity,
+      nested,
       totalCbm,
       packagingCost,
       baseUnitCost,
@@ -1032,7 +1071,7 @@ function renderMixedFob() {
     const title = document.createElement("strong");
     title.textContent = line.name;
     const meta = document.createElement("span");
-    meta.textContent = `外箱 ${line.logistics?.cartonSpec || "待填写"} · ${line.logistics?.cartonQty || "待填写"} / 箱`;
+    meta.textContent = `外箱 ${line.logistics?.cartonSpec || "待填写"} · ${line.logistics?.cartonQty || "待填写"} / 箱${line.nested ? " · 嵌套不占CBM" : ""}`;
     main.append(title, meta);
 
     const quantityLabel = document.createElement("label");
@@ -1052,6 +1091,21 @@ function renderMixedFob() {
       renderMixedFob();
     });
     quantityLabel.append(quantityText, quantityInput);
+
+    const nestedLabel = document.createElement("label");
+    nestedLabel.className = "mixed-nested";
+    const nestedInput = document.createElement("input");
+    nestedInput.type = "checkbox";
+    nestedInput.checked = line.nested;
+    const nestedText = document.createElement("span");
+    nestedText.textContent = "嵌套不占CBM";
+    nestedInput.addEventListener("change", () => {
+      const saved = state.mixedItems.find((item) => item.id === line.id);
+      if (saved) saved.nested = nestedInput.checked;
+      persistMixedItems();
+      renderMixedFob();
+    });
+    nestedLabel.append(nestedInput, nestedText);
 
     const stats = document.createElement("dl");
     stats.className = "mixed-line-stats";
@@ -1079,7 +1133,7 @@ function renderMixedFob() {
       renderMixedFob();
     });
 
-    row.append(main, quantityLabel, stats, remove);
+    row.append(main, quantityLabel, nestedLabel, stats, remove);
     elements.mixedList.append(row);
   });
 }
