@@ -731,7 +731,7 @@ function inferPackagingSizeFromName(name = "") {
 function packagingCostById(packagingId, quantity, sizeId = null) {
   const addons = packagingAddonsFor(sizeId);
   if (packagingId === "color-box") return 400 / quantity + addons.colorBox;
-  if (packagingId === "thick-box") return addons.thickBox;
+  if (packagingId === "thick-box") return 400 / quantity + addons.thickBox;
   if (packagingId === "thick-color-box") return 400 / quantity + addons.colorBox + addons.thickBox;
   return 0;
 }
