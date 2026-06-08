@@ -1668,6 +1668,8 @@ function ensureDocumentLines() {
 function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   const totals = documentTotals(lines);
   const deposit = totals.totalUsd * (settings.depositRate / 100);
+  const exportAgentName = settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
+  const exportAgentAddress = "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.";
   const rows = lines.map((line) => `
     <tr>
       <td class="center">${line.no}</td>
@@ -1694,8 +1696,8 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:11px}
     .company{text-align:center;font-weight:bold;font-size:16px;line-height:1.4;margin-bottom:10px}
     .company span{display:block;font-size:11px;font-weight:normal}
-    .agent-label{text-align:center;font-size:12px;font-weight:bold;line-height:1.35;margin:8px 0 6px}
-    .agent-label span{display:block}
+    .agent-box{border:1px solid #222;padding:7px 8px;margin:8px 0 10px;line-height:1.45}
+    .agent-box strong{display:block;margin-bottom:3px}
     h1{text-align:center;font-size:20px;margin:8px 0 14px;letter-spacing:1px;text-decoration:underline}
     table{width:100%;border-collapse:collapse}
     td,th{border:1px solid #222;padding:5px;vertical-align:middle}
@@ -1720,14 +1722,14 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     JINHUA WUHU INTERNATIONAL TRADE CO.,LTD
     <span>7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.</span>
   </div>
-  <div class="agent-label">
-    EXPORT AGENT
-    <span>FOR SELLER</span>
-    <span>${escapeHtml(settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD")}</span>
-  </div>
   <table class="header">
     <tr><td><strong>PI NO.</strong> ${escapeHtml(settings.piNo)}</td><td class="num"><strong>DATE:</strong> ${formatDateForDoc(settings.date)}</td></tr>
   </table>
+  <div class="agent-box">
+    <strong>EXPORT AGENT FOR SELLER:</strong>
+    Name: ${escapeHtml(exportAgentName)}<br>
+    ADD: ${escapeHtml(exportAgentAddress)}
+  </div>
   <h1>PROFORMA_INVOICE</h1>
   <div class="two-col">
     <div class="box">
@@ -1879,6 +1881,8 @@ function docxDocumentRelsXml(imageEntries) {
 function buildPiDocxDocumentXml(lines, settings, imageEntries) {
   const totals = documentTotals(lines);
   const deposit = totals.totalUsd * (settings.depositRate / 100);
+  const exportAgentName = settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
+  const exportAgentAddress = "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.";
   const imageByLine = new Map(imageEntries.map((entry) => [entry.lineIndex, entry]));
   const productWidths = [700, 1200, 6100, 900, 1000, 1600, 1600];
   const headerFill = "D9EAF7";
@@ -1916,14 +1920,22 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
     docxTableRow([docxTableCell("Total", 2200, { bold: true }), docxTableCell(`US$${fixedNumber(totals.totalUsd, 2)}`, 2200, { align: "center" })]),
     docxTableRow([docxTableCell(`${fixedNumber(settings.depositRate, 0)}% Deposit`, 2200, { bold: true }), docxTableCell(`US$${fixedNumber(deposit, 2)}`, 2200, { align: "center" })])
   ], [2200, 2200], { width: 4400 });
+  const piMetaTable = docxTable([
+    docxTableRow([
+      docxTableCell(`PI NO. ${settings.piNo}`, 6900, { bold: true }),
+      docxTableCell(`DATE: ${formatDateForDoc(settings.date)}`, 6900, { align: "center", bold: true })
+    ]),
+    docxTableRow([
+      docxTableCell(`EXPORT AGENT FOR SELLER:\nName: ${exportAgentName}\nADD: ${exportAgentAddress}`, 13800, { gridSpan: 2, bold: true, size: 18 })
+    ])
+  ], [6900, 6900]);
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
   <w:body>
     ${docxParagraph("JINHUA WUHU INTERNATIONAL TRADE CO.,LTD", { align: "center", bold: true, size: 28, after: 40 })}
     ${docxParagraph("7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.", { align: "center", size: 18, after: 80 })}
-    ${docxParagraph(`EXPORT AGENT\nFOR SELLER\n${settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD"}`, { align: "center", bold: true, size: 20, after: 80 })}
-    ${docxTable([docxTableRow([docxTableCell(`PI NO. ${settings.piNo}`, 6900, { bold: true }), docxTableCell(`DATE: ${formatDateForDoc(settings.date)}`, 6900, { align: "center", bold: true })])], [6900, 6900])}
+    ${piMetaTable}
     ${docxParagraph("PROFORMA_INVOICE", { align: "center", bold: true, size: 30, before: 120, after: 120 })}
     ${sellerBuyerTable}
     ${docxParagraph("", { after: 80 })}
