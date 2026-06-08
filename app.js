@@ -966,7 +966,41 @@ function xlsxFormulaCell(columnIndex, rowIndex, formula, cachedValue = "", style
 
 function xlsxRow(rowIndex, cells, height = "") {
   const heightAttr = height ? ` ht="${height}" customHeight="1"` : "";
-  return `<row r="${rowIndex}"${heightAttr}>${cells.join("")}</row>`;
+  return `<row r="${rowIndex}" spans="1:16"${heightAttr}>${cells.join("")}</row>`;
+}
+
+function xlsxFullRow(rowIndex, cellMap = {}, defaultStyle = 3, height = "") {
+  const cells = [];
+  for (let column = 1; column <= 16; column += 1) {
+    cells.push(cellMap[column] || xlsxBlankCell(column, rowIndex, defaultStyle));
+  }
+  return xlsxRow(rowIndex, cells, height);
+}
+
+function xlsxPackingRow(rowIndex, cellMap = {}, height = "15") {
+  const styles = {
+    1: 7,
+    2: 2,
+    3: 3,
+    4: 5,
+    5: 6,
+    6: 5,
+    7: 5,
+    8: 5,
+    9: 5,
+    10: 5,
+    11: 5,
+    12: 5,
+    13: 10,
+    14: 10,
+    15: 9,
+    16: 9
+  };
+  const cells = [];
+  for (let column = 1; column <= 16; column += 1) {
+    cells.push(cellMap[column] || xlsxBlankCell(column, rowIndex, styles[column] || 3));
+  }
+  return xlsxRow(rowIndex, cells, height);
 }
 
 const CRC32_TABLE = (() => {
@@ -1742,6 +1776,198 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
 </html>`;
 }
 
+function docxText(value = "") {
+  return xmlEscape(value);
+}
+
+function docxRun(text, options = {}) {
+  const props = [
+    options.bold ? "<w:b/>" : "",
+    options.italic ? "<w:i/>" : "",
+    options.size ? `<w:sz w:val="${options.size}"/>` : "",
+    options.color ? `<w:color w:val="${options.color}"/>` : ""
+  ].join("");
+  const rPr = props ? `<w:rPr>${props}</w:rPr>` : "";
+  return `<w:r>${rPr}<w:t xml:space="preserve">${docxText(text)}</w:t></w:r>`;
+}
+
+function docxParagraph(text = "", options = {}) {
+  const pPr = [
+    options.align ? `<w:jc w:val="${options.align}"/>` : "",
+    `<w:spacing w:before="${options.before || 0}" w:after="${options.after ?? 80}"/>`
+  ].join("");
+  const lines = String(text ?? "").split("\n");
+  const runs = lines.map((line, index) => `${index ? "<w:r><w:br/></w:r>" : ""}${docxRun(line, options)}`).join("");
+  return `<w:p><w:pPr>${pPr}</w:pPr>${runs || docxRun("", options)}</w:p>`;
+}
+
+function docxImageParagraph(entry) {
+  if (!entry) return docxParagraph("");
+  return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:drawing>
+    <wp:inline distT="0" distB="0" distL="0" distR="0">
+      <wp:extent cx="950000" cy="720000"/>
+      <wp:effectExtent l="0" t="0" r="0" b="0"/>
+      <wp:docPr id="${entry.docPrId}" name="Product ${entry.docPrId}"/>
+      <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
+      <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+        <pic:pic>
+          <pic:nvPicPr><pic:cNvPr id="${entry.docPrId}" name="${docxText(entry.mediaName)}"/><pic:cNvPicPr/></pic:nvPicPr>
+          <pic:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+          <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="950000" cy="720000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+        </pic:pic>
+      </a:graphicData></a:graphic>
+    </wp:inline>
+  </w:drawing></w:r></w:p>`;
+}
+
+function docxTableCell(content, width, options = {}) {
+  const paragraphs = Array.isArray(content) ? content.join("") : docxParagraph(content, options);
+  const shade = options.fill ? `<w:shd w:fill="${options.fill}"/>` : "";
+  const gridSpan = options.gridSpan ? `<w:gridSpan w:val="${options.gridSpan}"/>` : "";
+  const vAlign = `<w:vAlign w:val="${options.vAlign || "center"}"/>`;
+  return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${gridSpan}${shade}${vAlign}</w:tcPr>${paragraphs}</w:tc>`;
+}
+
+function docxTable(rows, widths, options = {}) {
+  const borders = `<w:tblBorders><w:top w:val="single" w:sz="4" w:color="333333"/><w:left w:val="single" w:sz="4" w:color="333333"/><w:bottom w:val="single" w:sz="4" w:color="333333"/><w:right w:val="single" w:sz="4" w:color="333333"/><w:insideH w:val="single" w:sz="4" w:color="333333"/><w:insideV w:val="single" w:sz="4" w:color="333333"/></w:tblBorders>`;
+  const grid = widths.map((width) => `<w:gridCol w:w="${width}"/>`).join("");
+  return `<w:tbl><w:tblPr><w:tblW w:w="${options.width || widths.reduce((sum, width) => sum + width, 0)}" w:type="dxa"/>${borders}<w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows.join("")}</w:tbl>`;
+}
+
+function docxTableRow(cells) {
+  return `<w:tr>${cells.join("")}</w:tr>`;
+}
+
+function docxPiDescription(line) {
+  return [
+    line.description,
+    line.material,
+    line.finishing ? `Color/Finishing: ${line.finishing}` : "",
+    `Packing: ${line.packagingText}`,
+    line.nested ? "Nested inside larger item" : ""
+  ].filter(Boolean).join("\n");
+}
+
+function docxContentTypesXml(imageEntries) {
+  const imageDefaults = [...new Set(imageEntries.map((entry) => entry.extension))]
+    .map((extension) => `<Default Extension="${extension}" ContentType="${extension === "png" ? "image/png" : "image/jpeg"}"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  ${imageDefaults}
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+}
+
+function docxRootRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+}
+
+function docxDocumentRelsXml(imageEntries) {
+  const relationships = imageEntries.map((entry) =>
+    `<Relationship Id="${entry.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${entry.mediaName}"/>`
+  ).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships}</Relationships>`;
+}
+
+function buildPiDocxDocumentXml(lines, settings, imageEntries) {
+  const totals = documentTotals(lines);
+  const deposit = totals.totalUsd * (settings.depositRate / 100);
+  const imageByLine = new Map(imageEntries.map((entry) => [entry.lineIndex, entry]));
+  const productWidths = [700, 1200, 6100, 900, 1000, 1600, 1600];
+  const headerFill = "D9EAF7";
+  const productRows = [
+    docxTableRow([
+      docxTableCell("ITEM", productWidths[0], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell("PHOTO", productWidths[1], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell("DESCRIPTION", productWidths[2], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell("VOL", productWidths[3], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell("QTY", productWidths[4], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell(`UNIT PRICE\nFOB ${settings.port}`, productWidths[5], { fill: headerFill, align: "center", bold: true }),
+      docxTableCell("TOTAL USD", productWidths[6], { fill: headerFill, align: "center", bold: true })
+    ])
+  ];
+  lines.forEach((line) => {
+    productRows.push(docxTableRow([
+      docxTableCell(String(line.no), productWidths[0], { align: "center" }),
+      docxTableCell([docxImageParagraph(imageByLine.get(line.no - 1))], productWidths[1], { align: "center" }),
+      docxTableCell(docxPiDescription(line), productWidths[2], { size: 18 }),
+      docxTableCell(line.volume, productWidths[3], { align: "center" }),
+      docxTableCell(String(line.orderQty), productWidths[4], { align: "center" }),
+      docxTableCell(`US$${fixedNumber(line.unitUsd, 2)}`, productWidths[5], { align: "center" }),
+      docxTableCell(`US$${fixedNumber(line.totalUsd, 2)}`, productWidths[6], { align: "center" })
+    ]));
+  });
+
+  const sellerBuyerTable = docxTable([
+    docxTableRow([
+      docxTableCell(`SELLERS:\nName: ${settings.sellerName}\nATTN: Wyatte Zhou\nEmail: wyatte@funzo.info\nTel: 86 183 9591 7159\nADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China`, 6900, { size: 18 }),
+      docxTableCell(`BUYERS:\nName: ${settings.buyerName}\nTel/Fax: ${settings.buyerContact}\nADD: ${settings.buyerAddress}${settings.buyerTaxId ? `\nCNPJ/Tax ID: ${settings.buyerTaxId}` : ""}`, 6900, { size: 18 })
+    ])
+  ], [6900, 6900]);
+
+  const totalsTable = docxTable([
+    docxTableRow([docxTableCell("Total", 2200, { bold: true }), docxTableCell(`US$${fixedNumber(totals.totalUsd, 2)}`, 2200, { align: "center" })]),
+    docxTableRow([docxTableCell(`${fixedNumber(settings.depositRate, 0)}% Deposit`, 2200, { bold: true }), docxTableCell(`US$${fixedNumber(deposit, 2)}`, 2200, { align: "center" })])
+  ], [2200, 2200], { width: 4400 });
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>
+    ${docxParagraph("JINHUA WUHU INTERNATIONAL TRADE CO.,LTD", { align: "center", bold: true, size: 28, after: 40 })}
+    ${docxParagraph("7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.", { align: "center", size: 18, after: 80 })}
+    ${docxParagraph(`EXPORT AGENT\nFOR SELLER\n${settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD"}`, { align: "center", bold: true, size: 20, after: 80 })}
+    ${docxTable([docxTableRow([docxTableCell(`PI NO. ${settings.piNo}`, 6900, { bold: true }), docxTableCell(`DATE: ${formatDateForDoc(settings.date)}`, 6900, { align: "center", bold: true })])], [6900, 6900])}
+    ${docxParagraph("PROFORMA_INVOICE", { align: "center", bold: true, size: 30, before: 120, after: 120 })}
+    ${sellerBuyerTable}
+    ${docxParagraph("", { after: 80 })}
+    ${docxTable(productRows, productWidths)}
+    ${docxParagraph("", { after: 80 })}
+    ${totalsTable}
+    ${docxParagraph(`1. TIME OF SHIPMENT\n${settings.shipment}`, { bold: true, before: 120, after: 80 })}
+    ${docxParagraph(`2. PORT OF LOADING\n${settings.port}`, { bold: true, after: 80 })}
+    ${docxParagraph(`3. TERMS OF PAYMENT\n${settings.payment}`, { bold: true, after: 80 })}
+    ${docxParagraph(`4. PACKING\n${settings.packing}`, { bold: true, after: 80 })}
+    ${docxParagraph("5. T/T Remittance\nBeneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH\nBeneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA\nBeneficiary bank Swift Code: BKCHCNBJ92H\nBeneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.\nBeneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA\nBeneficiary Account No.: 380558343961", { bold: true, after: 160 })}
+    ${docxTable([docxTableRow([docxTableCell("SELLER: (STAMP)", 6900, { align: "center" }), docxTableCell("BUYER: (STAMP)", 6900, { align: "center" })])], [6900, 6900])}
+    <w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>
+  </w:body>
+</w:document>`;
+}
+
+function buildPiDocxBlob(lines, settings = readDocSettingsFromForm()) {
+  const imageEntries = [];
+  const mediaFiles = [];
+  lines.forEach((line, lineIndex) => {
+    const image = dataUrlToBytes(line.imageData);
+    if (!image) return;
+    const imageIndex = imageEntries.length + 1;
+    const mediaName = `image${imageIndex}.${image.extension}`;
+    imageEntries.push({
+      lineIndex,
+      mediaName,
+      relId: `rId${imageIndex}`,
+      extension: image.extension,
+      docPrId: imageIndex + 1
+    });
+    mediaFiles.push({ name: `word/media/${mediaName}`, data: image.bytes });
+  });
+  const files = [
+    { name: "[Content_Types].xml", data: docxContentTypesXml(imageEntries) },
+    { name: "_rels/.rels", data: docxRootRelsXml() },
+    { name: "word/document.xml", data: buildPiDocxDocumentXml(lines, settings, imageEntries) },
+    { name: "word/_rels/document.xml.rels", data: docxDocumentRelsXml(imageEntries) },
+    ...mediaFiles
+  ];
+  return new Blob([createStoredZip(files)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
 function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
   const totals = documentTotals(lines);
   const detailRows = [
@@ -1861,19 +2087,39 @@ function xlsxSheetRelsXml() {
 function xlsxStylesXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="12"/><name val="Arial"/></font></fonts>
-  <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE9EF"/><bgColor indexed="64"/></patternFill></fill></fills>
-  <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF333333"/></left><right style="thin"><color rgb="FF333333"/></right><top style="thin"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF333333"/></bottom><diagonal/></border></borders>
+  <fonts count="4">
+    <font><sz val="10"/><name val="Arial"/></font>
+    <font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Arial"/></font>
+    <font><sz val="10"/><name val="Arial"/></font>
+    <font><b/><sz val="10"/><name val="Arial"/></font>
+  </fonts>
+  <fills count="5">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF4F84BD"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFF200"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="3">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border>
+    <border><left style="thin"><color rgb="FFD9D9D9"/></left><right style="thin"><color rgb="FFD9D9D9"/></right><top style="thin"><color rgb="FFD9D9D9"/></top><bottom style="thin"><color rgb="FFD9D9D9"/></bottom><diagonal/></border>
+  </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="8">
+  <cellXfs count="13">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
-    <xf numFmtId="0" fontId="1" fillId="0" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
-    <xf numFmtId="2" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
-    <xf numFmtId="4" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
-    <xf numFmtId="1" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="3" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="2" fontId="2" fillId="3" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="4" fontId="2" fillId="3" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="1" fontId="2" fillId="3" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="4" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="4" fontId="2" fillId="4" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="1" fontId="2" fillId="4" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="4" fontId="3" fillId="3" borderId="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -1921,29 +2167,29 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
   const rows = [];
   const merges = ["A1:A2", "B1:C2", "D1:D2", "E1:E2", "F1:H1", "I1:I2", "M1:M2", "N1:N2", "O1:O2", "P1:P2"];
 
-  rows.push(xlsxRow(1, [
-    xlsxStringCell(1, 1, "Photo", 1),
-    xlsxStringCell(2, 1, "Description", 1),
-    xlsxStringCell(4, 1, `FOB\n${settings.port}\nUSD/Each`, 1),
-    xlsxStringCell(5, 1, "Packing\nQty/Ctn", 1),
-    xlsxStringCell(6, 1, "Measurement", 1),
-    xlsxStringCell(9, 1, "CTN\nCBM", 1),
-    xlsxStringCell(10, 1, "Unit\nWeight", 1),
-    xlsxStringCell(11, 1, "Carton\nWeight", 1),
-    xlsxStringCell(12, 1, "QTY", 1),
-    xlsxStringCell(13, 1, "Carton\nQTY", 1),
-    xlsxStringCell(14, 1, "Order\nQTY", 1),
-    xlsxStringCell(15, 1, "FOB TOTAL $", 1),
-    xlsxStringCell(16, 1, "CBM", 1)
-  ], 34));
-  rows.push(xlsxRow(2, [
-    xlsxStringCell(6, 2, "L", 1),
-    xlsxStringCell(7, 2, "W", 1),
-    xlsxStringCell(8, 2, "H", 1),
-    xlsxStringCell(10, 2, "kg/pc", 1),
-    xlsxStringCell(11, 2, "kg/ctn", 1),
-    xlsxStringCell(12, 2, container.label, 1)
-  ], 24));
+  rows.push(xlsxFullRow(1, {
+    1: xlsxStringCell(1, 1, "Photo", 1),
+    2: xlsxStringCell(2, 1, "Description", 1),
+    4: xlsxStringCell(4, 1, `FOB\n${settings.port}\nUSD/Each`, 1),
+    5: xlsxStringCell(5, 1, "Packing\nQty/Ctn", 1),
+    6: xlsxStringCell(6, 1, "Measurement", 1),
+    9: xlsxStringCell(9, 1, "CTN\nCBM", 1),
+    10: xlsxStringCell(10, 1, "Unit\nWeight", 1),
+    11: xlsxStringCell(11, 1, "Carton\nWeight", 1),
+    12: xlsxStringCell(12, 1, "QTY", 1),
+    13: xlsxStringCell(13, 1, "Carton\nQTY", 1),
+    14: xlsxStringCell(14, 1, "Order\nQTY", 1),
+    15: xlsxStringCell(15, 1, "FOB TOTAL $", 1),
+    16: xlsxStringCell(16, 1, "CBM", 1)
+  }, 1, "36"));
+  rows.push(xlsxFullRow(2, {
+    6: xlsxStringCell(6, 2, "L", 1),
+    7: xlsxStringCell(7, 2, "W", 1),
+    8: xlsxStringCell(8, 2, "H", 1),
+    10: xlsxStringCell(10, 2, "kg/pc", 1),
+    11: xlsxStringCell(11, 2, "kg/ctn", 1),
+    12: xlsxStringCell(12, 2, container.label, 1)
+  }, 1, "36"));
 
   lines.forEach((line, index) => {
     const startRow = 3 + index * 7;
@@ -1954,49 +2200,47 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
 
     xlsxDetailRows(line).forEach(([label, value], offset) => {
       const rowNumber = startRow + offset;
-      const cells = [
-        xlsxStringCell(2, rowNumber, label, 2),
-        xlsxStringCell(3, rowNumber, value, 3)
-      ];
+      const cells = {
+        2: xlsxStringCell(2, rowNumber, label, 2),
+        3: xlsxStringCell(3, rowNumber, value, 3)
+      };
       if (offset === 0) {
-        cells.unshift(xlsxBlankCell(1, rowNumber, 7));
-        cells.push(
-          xlsxNumberCell(4, rowNumber, fixedNumber(line.unitUsd, 2), 5),
-          xlsxNumberCell(5, rowNumber, line.cartonQty, 6),
-          xlsxNumberCell(6, rowNumber, line.length, 4),
-          xlsxNumberCell(7, rowNumber, line.width, 4),
-          xlsxNumberCell(8, rowNumber, line.height, 4),
-          xlsxFormulaCell(9, rowNumber, `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`, line.cartonCbm, 5),
-          xlsxNumberCell(10, rowNumber, line.unitWeightKg === "" ? "" : line.unitWeightKg, 4),
-          xlsxNumberCell(11, rowNumber, line.cartonWeightKg === "" ? "" : line.cartonWeightKg, 4),
-          xlsxFormulaCell(12, rowNumber, `IFERROR(${container.volume}/I${startRow}*E${startRow},"")`, line.containerCapacity, 4),
-          xlsxFormulaCell(13, rowNumber, `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`, line.cartonQty ? line.orderQty / line.cartonQty : "", 4),
-          xlsxNumberCell(14, rowNumber, line.orderQty, 6),
-          xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, line.totalUsd, 5),
-          xlsxFormulaCell(16, rowNumber, line.nested ? "0" : `IF(OR(N${startRow}="",E${startRow}="",I${startRow}=""),"",N${startRow}/E${startRow}*I${startRow})`, line.totalCbm, 5)
-        );
+        cells[1] = xlsxBlankCell(1, rowNumber, 7);
+        cells[4] = xlsxNumberCell(4, rowNumber, fixedNumber(line.unitUsd, 2), 5);
+        cells[5] = xlsxNumberCell(5, rowNumber, line.cartonQty, 6);
+        cells[6] = xlsxNumberCell(6, rowNumber, line.length, 5);
+        cells[7] = xlsxNumberCell(7, rowNumber, line.width, 5);
+        cells[8] = xlsxNumberCell(8, rowNumber, line.height, 5);
+        cells[9] = xlsxFormulaCell(9, rowNumber, `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`, line.cartonCbm, 5);
+        cells[10] = xlsxNumberCell(10, rowNumber, line.unitWeightKg === "" ? "" : line.unitWeightKg, 5);
+        cells[11] = xlsxNumberCell(11, rowNumber, line.cartonWeightKg === "" ? "" : line.cartonWeightKg, 5);
+        cells[12] = xlsxFormulaCell(12, rowNumber, `IFERROR(${container.volume}/I${startRow}*E${startRow},"")`, line.containerCapacity, 5);
+        cells[13] = xlsxFormulaCell(13, rowNumber, `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`, line.cartonQty ? line.orderQty / line.cartonQty : "", 10);
+        cells[14] = xlsxNumberCell(14, rowNumber, line.orderQty, 10);
+        cells[15] = xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, line.totalUsd, 9);
+        cells[16] = xlsxFormulaCell(16, rowNumber, line.nested ? "0" : `IF(OR(N${startRow}="",E${startRow}="",I${startRow}=""),"",N${startRow}/E${startRow}*I${startRow})`, line.totalCbm, 9);
       }
-      rows.push(xlsxRow(rowNumber, cells, offset === 0 ? 36 : 24));
+      rows.push(xlsxPackingRow(rowNumber, cells, "15"));
     });
   });
 
   const totalRow = lines.length ? 3 + lines.length * 7 : 3;
   const sumRangeEnd = Math.max(3, totalRow - 1);
   const totalCartonsByFormula = lines.reduce((sum, line) => sum + (line.cartonQty ? line.orderQty / line.cartonQty : 0), 0);
-  rows.push(xlsxRow(totalRow, [
-    xlsxStringCell(12, totalRow, "Total", 2),
-    xlsxFormulaCell(13, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",M$3:M$${sumRangeEnd})`, totalCartonsByFormula, 4),
-    xlsxFormulaCell(14, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",N$3:N$${sumRangeEnd})`, totals.totalQty, 6),
-    xlsxFormulaCell(15, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",O$3:O$${sumRangeEnd})`, totals.totalUsd, 5),
-    xlsxFormulaCell(16, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",P$3:P$${sumRangeEnd})`, totals.totalCbm, 5)
-  ], 26));
+  rows.push(xlsxFullRow(totalRow, {
+    12: xlsxStringCell(12, totalRow, "Total", 11),
+    13: xlsxFormulaCell(13, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",M$3:M$${sumRangeEnd})`, totalCartonsByFormula, 12),
+    14: xlsxFormulaCell(14, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",N$3:N$${sumRangeEnd})`, totals.totalQty, 12),
+    15: xlsxFormulaCell(15, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",O$3:O$${sumRangeEnd})`, totals.totalUsd, 12),
+    16: xlsxFormulaCell(16, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",P$3:P$${sumRangeEnd})`, totals.totalCbm, 12)
+  }, 0, "15"));
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>
-    <col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="11" customWidth="1"/><col min="3" max="3" width="34" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="5" width="10" customWidth="1"/><col min="6" max="8" width="8" customWidth="1"/><col min="9" max="9" width="11" customWidth="1"/><col min="10" max="10" width="11" customWidth="1"/><col min="11" max="11" width="12" customWidth="1"/><col min="12" max="12" width="10" customWidth="1"/><col min="13" max="14" width="11" customWidth="1"/><col min="15" max="15" width="13" customWidth="1"/><col min="16" max="16" width="10" customWidth="1"/>
+    <col min="1" max="1" width="23.83203125" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="34" customWidth="1"/><col min="4" max="4" width="15.1640625" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/><col min="6" max="8" width="10" customWidth="1"/><col min="9" max="9" width="11" customWidth="1"/><col min="10" max="11" width="9.1640625" customWidth="1"/><col min="12" max="12" width="10" customWidth="1"/><col min="13" max="14" width="12" customWidth="1"/><col min="15" max="15" width="14" customWidth="1"/><col min="16" max="16" width="10" customWidth="1"/>
   </cols>
   <sheetData>${rows.join("")}</sheetData>
   <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
@@ -2047,7 +2291,7 @@ function downloadPiFile() {
   const lines = ensureDocumentLines();
   if (!lines) return;
   const settings = readDocSettingsFromForm();
-  downloadTextFile(`PI_${safeFilename(settings.piNo)}.html`, buildPiHtml(lines, settings), "text/html;charset=utf-8");
+  downloadBlobFile(`PI_${safeFilename(settings.piNo)}.docx`, buildPiDocxBlob(lines, settings));
 }
 
 function printPiFile() {
