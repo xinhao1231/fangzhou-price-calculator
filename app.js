@@ -951,6 +951,50 @@ function imagePreviewHtml(dataUrl, alt = "Product photo") {
   return `<img src="${dataUrl}" alt="${escapeHtml(alt)}">`;
 }
 
+function volumeLabelFromName(name = "") {
+  const match = String(name).match(/(?:^|[^0-9])(?:3|5|8|12|20|30|50|100|120|240)L/i);
+  return match ? `${match[0].replace(/[^0-9]/g, "")}L` : "";
+}
+
+function packagingLabel(packagingId, nested = false) {
+  const labels = {
+    "no-color-box": nested ? "Nested inside larger item" : "1/pc poly bag",
+    "color-box": "1/pc color box; 5 layers master carton",
+    "thick-box": "1/pc reinforced inner box; 5 layers master carton",
+    "thick-color-box": "1/pc reinforced color box; 5 layers master carton"
+  };
+  return labels[packagingId] || "1/pc poly bag";
+}
+
+function englishDescription(name = "") {
+  const size = volumeLabelFromName(name);
+  const prefix = size ? `${Number.parseInt(size, 10)} Liter ` : "";
+  if (name.includes("不锈钢脚踏垃圾桶")) return `${prefix}Stainless Steel Pedal Trash Can`;
+  if (name.includes("喷漆垃圾桶")) return `${prefix}Painted Pedal Trash Can`;
+  if (name.includes("竹盖垃圾桶")) return `${prefix}Bamboo Lid Trash Can`;
+  if (name.includes("方形垃圾桶")) return "Square Trash Can";
+  if (name.includes("感应垃圾桶")) return "Sensor Trash Can";
+  if (name.includes("马桶刷")) return `${name.includes("大号") ? "Large" : name.includes("小号") ? "Small" : ""} Toilet Brush`.trim();
+  if (name.includes("户外垃圾桶")) return `${prefix}Outdoor Trash Bin`;
+  return name;
+}
+
+function materialDescription(name = "") {
+  if (name.includes("不锈钢")) return "401 Stainless Steel";
+  if (name.includes("竹盖")) return "Metal body with bamboo lid";
+  if (name.includes("马桶刷")) return "Stainless steel / PP";
+  if (name.includes("感应")) return "Stainless steel / electronic sensor";
+  return "";
+}
+
+function finishingDescription(name = "") {
+  if (name.includes("喷漆")) return "Painted finish";
+  if (name.includes("黑白")) return "Black and white";
+  if (name.includes("银色") || name.includes("不锈钢")) return "Chrome";
+  if (name.includes("竹盖")) return "Bamboo lid";
+  return "";
+}
+
 function imageFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1350,24 +1394,40 @@ function documentLines() {
   return calculateMixedFob().lines.map((line, index) => {
     const dims = parseCartonSpec(line.logistics?.cartonSpec);
     const cartonQty = Number(line.logistics?.cartonQty) || 0;
+    const cartonCbm = Number(line.logistics?.cbm) || 0;
     const orderQty = line.quantity;
     const cartonCount = cartonQty ? Math.ceil(orderQty / cartonQty) : 0;
+    const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+    const containerCapacity = cartonCbm && cartonQty ? (container.volume / cartonCbm) * cartonQty : 0;
     const unitUsd = line.fobUnitPrice / exchangeRate;
     const totalUsd = unitUsd * orderQty;
+    const unitWeightKg = parseWeightKg(line.logistics?.unitWeight);
+    const cartonWeightKg = unitWeightKg === "" || !cartonQty ? "" : unitWeightKg * cartonQty;
     return {
       no: index + 1,
       name: line.name,
+      description: englishDescription(line.name),
+      volume: volumeLabelFromName(line.name),
+      material: materialDescription(line.name),
+      finishing: finishingDescription(line.name),
+      packagingText: packagingLabel(line.packagingId, line.nested),
       imageData: line.imageData || "",
+      packagingId: line.packagingId,
       cartonQty,
       cartonSpec: line.logistics?.cartonSpec || "",
       length: dims.length,
       width: dims.width,
       height: dims.height,
-      cartonCbm: Number(line.logistics?.cbm) || 0,
-      unitWeightKg: parseWeightKg(line.logistics?.unitWeight),
+      cartonCbm,
+      containerCapacity,
+      unitWeightKg,
+      cartonWeightKg,
       cartonCount,
       orderQty,
       totalCbm: line.totalCbm,
+      productUnitRmb: Number(line.unitPrice || 0),
+      packagingCost: line.packagingCost,
+      baseUnitRmb: line.baseUnitCost,
       unitRmb: line.fobUnitPrice,
       unitUsd,
       totalUsd,
@@ -1397,10 +1457,15 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   const deposit = totals.totalUsd * (settings.depositRate / 100);
   const rows = lines.map((line) => `
     <tr>
-      <td>${line.no}</td>
+      <td class="center">${line.no}</td>
       <td class="photo-cell">${imagePreviewHtml(line.imageData, line.name)}</td>
-      <td>${escapeHtml(line.name)}${line.nested ? "<br><small>Nested inside larger item</small>" : ""}</td>
-      <td>${escapeHtml(inferPackagingSizeFromName(line.name)?.toUpperCase() || "")}</td>
+      <td>
+        <strong>${escapeHtml(line.description)}</strong><br>
+        ${escapeHtml(line.material)}${line.finishing ? `<br>Color/Finishing: ${escapeHtml(line.finishing)}` : ""}<br>
+        Packing: ${escapeHtml(line.packagingText)}
+        ${line.nested ? "<br><small>Nested inside larger item</small>" : ""}
+      </td>
+      <td class="center">${escapeHtml(line.volume)}</td>
       <td class="num">${line.orderQty}</td>
       <td class="num">US$${fixedNumber(line.unitUsd, 2)}</td>
       <td class="num">US$${fixedNumber(line.totalUsd, 2)}</td>
@@ -1413,15 +1478,18 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   <meta charset="utf-8">
   <title>PI ${escapeHtml(settings.piNo)}</title>
   <style>
-    body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:12px}
-    h1{text-align:center;font-size:22px;margin:8px 0 18px;letter-spacing:1px}
+    body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:11px}
+    .company{text-align:center;font-weight:bold;font-size:16px;line-height:1.4;margin-bottom:10px}
+    .company span{display:block;font-size:11px;font-weight:normal}
+    h1{text-align:center;font-size:20px;margin:8px 0 14px;letter-spacing:1px;text-decoration:underline}
     table{width:100%;border-collapse:collapse}
-    td,th{border:1px solid #333;padding:6px;vertical-align:middle}
-    th{background:#f0f0f0}
+    td,th{border:1px solid #222;padding:5px;vertical-align:middle}
+    th{background:#e9eef1}
     .header td{border:0;padding:3px 0}
     .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
-    .box{border:1px solid #333;padding:8px;min-height:86px}
+    .box{border:1px solid #222;padding:8px;min-height:92px;line-height:1.45}
     .box strong{display:block;margin-bottom:5px}
+    .center{text-align:center}
     .num{text-align:right;white-space:nowrap}
     .photo-cell{width:86px;text-align:center}
     .photo-cell img{max-width:74px;max-height:58px;object-fit:contain}
@@ -1433,10 +1501,14 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   </style>
 </head>
 <body>
+  <div class="company">
+    JINHUA WUHU INTERNATIONAL TRADE CO.,LTD
+    <span>7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.</span>
+  </div>
   <table class="header">
     <tr><td><strong>PI NO.</strong> ${escapeHtml(settings.piNo)}</td><td class="num"><strong>DATE:</strong> ${formatDateForDoc(settings.date)}</td></tr>
   </table>
-  <h1>PROFORMA INVOICE</h1>
+  <h1>PROFORMA_INVOICE</h1>
   <div class="two-col">
     <div class="box">
       <strong>SELLERS:</strong>
@@ -1484,23 +1556,38 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
 
 function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
   const totals = documentTotals(lines);
-  const rows = lines.map((line) => `
+  const detailRows = [
+    ["Name:", (line) => line.description],
+    ["Size:", (line) => line.volume || line.name],
+    ["Material:", (line) => line.material],
+    ["Finishing:", (line) => line.finishing],
+    ["Packaging:", (line) => line.packagingText],
+    ["RMB Price:", (line) => fixedNumber(line.baseUnitRmb, 2)],
+    ["FOB RMB Price:", (line) => fixedNumber(line.unitRmb, 2)],
+    ["Remark:", (line) => line.nested ? "Nested inside larger item; no extra CBM" : ""]
+  ];
+  const rows = lines.map((line) => detailRows.map(([label, getter], rowIndex) => `
     <tr>
-      <td>${imagePreviewHtml(line.imageData, line.name)}</td>
-      <td>${escapeHtml(line.name)}${line.nested ? "<br>Nested inside larger item" : ""}</td>
-      <td>${fixedNumber(line.unitUsd, 2)}</td>
-      <td>${line.cartonQty || ""}</td>
-      <td>${line.length}</td>
-      <td>${line.width}</td>
-      <td>${line.height}</td>
-      <td>${fixedNumber(line.cartonCbm, 4)}</td>
-      <td>${line.unitWeightKg === "" ? "" : fixedNumber(line.unitWeightKg, 3)}</td>
-      <td>${line.cartonCount || ""}</td>
-      <td>${line.orderQty}</td>
-      <td>${fixedNumber(line.totalUsd, 2)}</td>
-      <td>${fixedNumber(line.totalCbm, 3)}</td>
+      ${rowIndex === 0 ? `<td rowspan="8" class="photo">${imagePreviewHtml(line.imageData, line.name)}</td>` : ""}
+      <td class="label">${label}</td>
+      <td>${escapeHtml(getter(line))}</td>
+      ${rowIndex === 0 ? `
+        <td rowspan="8" class="num">${fixedNumber(line.unitUsd, 2)}</td>
+        <td rowspan="8" class="num">${line.cartonQty || ""}</td>
+        <td rowspan="8" class="num">${line.length}</td>
+        <td rowspan="8" class="num">${line.width}</td>
+        <td rowspan="8" class="num">${line.height}</td>
+        <td rowspan="8" class="num">${fixedNumber(line.cartonCbm, 4)}</td>
+        <td rowspan="8" class="num">${line.unitWeightKg === "" ? "" : fixedNumber(line.unitWeightKg, 3)}</td>
+        <td rowspan="8" class="num">${line.cartonWeightKg === "" ? "" : fixedNumber(line.cartonWeightKg, 2)}</td>
+        <td rowspan="8" class="num">${line.containerCapacity ? Math.floor(line.containerCapacity) : ""}</td>
+        <td rowspan="8" class="num">${line.cartonCount || ""}</td>
+        <td rowspan="8" class="num">${line.orderQty}</td>
+        <td rowspan="8" class="num">${fixedNumber(line.totalUsd, 2)}</td>
+        <td rowspan="8" class="num">${fixedNumber(line.totalCbm, 3)}</td>
+      ` : ""}
     </tr>
-  `).join("");
+  `).join("")).join("");
   return `<!doctype html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
 <head>
@@ -1508,23 +1595,30 @@ function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
   <style>
     table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}
     td,th{border:1px solid #333;padding:6px;vertical-align:middle}
-    th{background:#eaf2f4;font-weight:bold;text-align:center}
-    img{max-width:72px;max-height:54px;object-fit:contain}
+    th{background:#dbe9ee;font-weight:bold;text-align:center;white-space:pre-line}
+    img{max-width:145px;max-height:112px;object-fit:contain}
+    .photo{text-align:center;width:160px}
+    .label{font-weight:bold;width:82px}
     .title{font-size:18px;font-weight:bold;text-align:center}
     .num{text-align:right}
   </style>
 </head>
 <body>
   <table>
-    <tr><td class="title" colspan="13">Quotation & Packing List - ${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</td></tr>
-    <tr><td colspan="2">PI NO.</td><td colspan="3">${escapeHtml(settings.piNo)}</td><td colspan="2">Date</td><td colspan="6">${formatDateForDoc(settings.date)}</td></tr>
-    <tr><td colspan="2">Buyer</td><td colspan="11">${escapeHtml(settings.buyerName)}</td></tr>
+    <colgroup>
+      <col style="width:170px"><col style="width:90px"><col style="width:260px"><col style="width:95px"><col style="width:80px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:70px"><col style="width:80px"><col style="width:80px"><col style="width:92px"><col style="width:75px">
+    </colgroup>
+    <tr><td class="title" colspan="16">Quotation Template - ${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</td></tr>
+    <tr><td colspan="2">PI NO.</td><td colspan="3">${escapeHtml(settings.piNo)}</td><td colspan="2">Date</td><td colspan="3">${formatDateForDoc(settings.date)}</td><td colspan="2">Buyer</td><td colspan="4">${escapeHtml(settings.buyerName)}</td></tr>
     <tr>
-      <th>Photo</th><th>Description</th><th>FOB<br>${escapeHtml(settings.port)}<br>USD/Each</th><th>Packing<br>Qty/Ctn</th>
-      <th>L</th><th>W</th><th>H</th><th>CTN<br>CBM</th><th>Unit<br>Weight kg</th><th>Carton<br>QTY</th><th>Order<br>QTY</th><th>FOB TOTAL $</th><th>CBM</th>
+      <th rowspan="2">Photo</th><th colspan="2" rowspan="2">Description</th><th rowspan="2">FOB<br>${escapeHtml(settings.port)}<br>USD/Each</th><th rowspan="2">Packing<br>Qty/Ctn</th>
+      <th colspan="3">Measurement</th><th rowspan="2">CTN<br>CBM</th><th rowspan="2">Unit<br>Weight<br>kg/pc</th><th rowspan="2">Carton<br>Weight<br>kg/ctn</th><th rowspan="2">QTY<br>${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</th><th rowspan="2">Carton<br>QTY</th><th rowspan="2">Order<br>QTY</th><th rowspan="2">FOB TOTAL $</th><th rowspan="2">CBM</th>
+    </tr>
+    <tr>
+      <th>L</th><th>W</th><th>H</th>
     </tr>
     ${rows}
-    <tr><td colspan="9" class="num"><strong>Total</strong></td><td>${totals.totalCartons}</td><td>${totals.totalQty}</td><td>${fixedNumber(totals.totalUsd, 2)}</td><td>${fixedNumber(totals.totalCbm, 3)}</td></tr>
+    <tr><td colspan="12" class="num"><strong>Total</strong></td><td>${totals.totalCartons}</td><td>${totals.totalQty}</td><td>${fixedNumber(totals.totalUsd, 2)}</td><td>${fixedNumber(totals.totalCbm, 3)}</td></tr>
   </table>
 </body>
 </html>`;
