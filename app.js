@@ -483,6 +483,7 @@ const elements = {
   docBuyerAddress: document.querySelector("#docBuyerAddress"),
   docBuyerTaxId: document.querySelector("#docBuyerTaxId"),
   docSellerName: document.querySelector("#docSellerName"),
+  docExportAgent: document.querySelector("#docExportAgent"),
   docPort: document.querySelector("#docPort"),
   docDepositRate: document.querySelector("#docDepositRate"),
   docPayment: document.querySelector("#docPayment"),
@@ -557,6 +558,7 @@ function defaultDocSettings() {
     buyerAddress: "",
     buyerTaxId: "",
     sellerName: "Yongkang Fangzhou Hardware Factory",
+    exportAgent: "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD",
     port: "Ningbo",
     depositRate: 30,
     payment: "30% T/T as deposit, balance shall be paid before shipment",
@@ -904,12 +906,187 @@ function fixedNumber(value, digits = 2) {
 
 function downloadTextFile(filename, content, type) {
   const blob = new Blob([content], { type });
+  downloadBlobFile(filename, blob);
+}
+
+function downloadBlobFile(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function xmlEscape(value = "") {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function xlsxColumnName(index) {
+  let column = "";
+  let value = index;
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    column = String.fromCharCode(65 + remainder) + column;
+    value = Math.floor((value - 1) / 26);
+  }
+  return column;
+}
+
+function xlsxCellRef(columnIndex, rowIndex) {
+  return `${xlsxColumnName(columnIndex)}${rowIndex}`;
+}
+
+function xlsxBlankCell(columnIndex, rowIndex, style = 3) {
+  return `<c r="${xlsxCellRef(columnIndex, rowIndex)}" s="${style}"/>`;
+}
+
+function xlsxStringCell(columnIndex, rowIndex, value, style = 3) {
+  if (value === "" || value === null || value === undefined) return xlsxBlankCell(columnIndex, rowIndex, style);
+  const preserved = String(value).startsWith(" ") || String(value).endsWith(" ");
+  return `<c r="${xlsxCellRef(columnIndex, rowIndex)}" s="${style}" t="inlineStr"><is><t${preserved ? ' xml:space="preserve"' : ""}>${xmlEscape(value)}</t></is></c>`;
+}
+
+function xlsxNumberCell(columnIndex, rowIndex, value, style = 4) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return xlsxBlankCell(columnIndex, rowIndex, style);
+  return `<c r="${xlsxCellRef(columnIndex, rowIndex)}" s="${style}"><v>${number}</v></c>`;
+}
+
+function xlsxFormulaCell(columnIndex, rowIndex, formula, cachedValue = "", style = 4) {
+  const number = Number(cachedValue);
+  const cached = Number.isFinite(number) ? `<v>${number}</v>` : "";
+  return `<c r="${xlsxCellRef(columnIndex, rowIndex)}" s="${style}"><f>${xmlEscape(formula)}</f>${cached}</c>`;
+}
+
+function xlsxRow(rowIndex, cells, height = "") {
+  const heightAttr = height ? ` ht="${height}" customHeight="1"` : "";
+  return `<row r="${rowIndex}"${heightAttr}>${cells.join("")}</row>`;
+}
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let value = i;
+    for (let j = 0; j < 8; j += 1) {
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[i] = value >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pushUint16LE(parts, value) {
+  parts.push(value & 0xff, (value >>> 8) & 0xff);
+}
+
+function pushUint32LE(parts, value) {
+  parts.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
+}
+
+function concatUint8Arrays(parts, totalLength) {
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  parts.forEach((part) => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function createStoredZip(files) {
+  const encoder = new TextEncoder();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  files.forEach((file) => {
+    const nameBytes = encoder.encode(file.name);
+    const data = typeof file.data === "string" ? encoder.encode(file.data) : file.data;
+    const checksum = crc32(data);
+    const localHeader = [];
+    pushUint32LE(localHeader, 0x04034b50);
+    pushUint16LE(localHeader, 20);
+    pushUint16LE(localHeader, 0);
+    pushUint16LE(localHeader, 0);
+    pushUint16LE(localHeader, dosTime);
+    pushUint16LE(localHeader, dosDate);
+    pushUint32LE(localHeader, checksum);
+    pushUint32LE(localHeader, data.length);
+    pushUint32LE(localHeader, data.length);
+    pushUint16LE(localHeader, nameBytes.length);
+    pushUint16LE(localHeader, 0);
+    const localHeaderBytes = Uint8Array.from(localHeader);
+    localParts.push(localHeaderBytes, nameBytes, data);
+
+    const centralHeader = [];
+    pushUint32LE(centralHeader, 0x02014b50);
+    pushUint16LE(centralHeader, 20);
+    pushUint16LE(centralHeader, 20);
+    pushUint16LE(centralHeader, 0);
+    pushUint16LE(centralHeader, 0);
+    pushUint16LE(centralHeader, dosTime);
+    pushUint16LE(centralHeader, dosDate);
+    pushUint32LE(centralHeader, checksum);
+    pushUint32LE(centralHeader, data.length);
+    pushUint32LE(centralHeader, data.length);
+    pushUint16LE(centralHeader, nameBytes.length);
+    pushUint16LE(centralHeader, 0);
+    pushUint16LE(centralHeader, 0);
+    pushUint16LE(centralHeader, 0);
+    pushUint16LE(centralHeader, 0);
+    pushUint32LE(centralHeader, 0);
+    pushUint32LE(centralHeader, offset);
+    centralParts.push(Uint8Array.from(centralHeader), nameBytes);
+
+    offset += localHeaderBytes.length + nameBytes.length + data.length;
+  });
+
+  const centralOffset = offset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const endHeader = [];
+  pushUint32LE(endHeader, 0x06054b50);
+  pushUint16LE(endHeader, 0);
+  pushUint16LE(endHeader, 0);
+  pushUint16LE(endHeader, files.length);
+  pushUint16LE(endHeader, files.length);
+  pushUint32LE(endHeader, centralSize);
+  pushUint32LE(endHeader, centralOffset);
+  pushUint16LE(endHeader, 0);
+  const endHeaderBytes = Uint8Array.from(endHeader);
+
+  const allParts = [...localParts, ...centralParts, endHeaderBytes];
+  const totalLength = allParts.reduce((sum, part) => sum + part.length, 0);
+  return concatUint8Arrays(allParts, totalLength);
+}
+
+function dataUrlToBytes(dataUrl = "") {
+  const match = String(dataUrl).match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) return null;
+  const mimeType = match[1].toLowerCase();
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const extension = mimeType.includes("png") ? "png" : mimeType.includes("jpg") || mimeType.includes("jpeg") ? "jpeg" : "jpeg";
+  return { bytes, mimeType, extension };
 }
 
 function syncDocSettingsToForm() {
@@ -920,6 +1097,7 @@ function syncDocSettingsToForm() {
   elements.docBuyerAddress.value = state.docSettings.buyerAddress || "";
   elements.docBuyerTaxId.value = state.docSettings.buyerTaxId || "";
   elements.docSellerName.value = state.docSettings.sellerName || "";
+  elements.docExportAgent.value = state.docSettings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
   elements.docPort.value = state.docSettings.port || "Ningbo";
   elements.docDepositRate.value = state.docSettings.depositRate ?? 30;
   elements.docPayment.value = state.docSettings.payment || "";
@@ -936,6 +1114,7 @@ function readDocSettingsFromForm() {
     buyerAddress: elements.docBuyerAddress.value.trim(),
     buyerTaxId: elements.docBuyerTaxId.value.trim(),
     sellerName: elements.docSellerName.value.trim(),
+    exportAgent: elements.docExportAgent.value.trim(),
     port: elements.docPort.value.trim() || "Ningbo",
     depositRate: Math.max(0, Math.min(100, numberFromInput(elements.docDepositRate, 30))),
     payment: elements.docPayment.value.trim(),
@@ -1481,6 +1660,8 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:11px}
     .company{text-align:center;font-weight:bold;font-size:16px;line-height:1.4;margin-bottom:10px}
     .company span{display:block;font-size:11px;font-weight:normal}
+    .agent-label{text-align:center;font-size:12px;font-weight:bold;line-height:1.35;margin:8px 0 6px}
+    .agent-label span{display:block}
     h1{text-align:center;font-size:20px;margin:8px 0 14px;letter-spacing:1px;text-decoration:underline}
     table{width:100%;border-collapse:collapse}
     td,th{border:1px solid #222;padding:5px;vertical-align:middle}
@@ -1504,6 +1685,11 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   <div class="company">
     JINHUA WUHU INTERNATIONAL TRADE CO.,LTD
     <span>7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.</span>
+  </div>
+  <div class="agent-label">
+    EXPORT AGENT
+    <span>FOR SELLER</span>
+    <span>${escapeHtml(settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD")}</span>
   </div>
   <table class="header">
     <tr><td><strong>PI NO.</strong> ${escapeHtml(settings.piNo)}</td><td class="num"><strong>DATE:</strong> ${formatDateForDoc(settings.date)}</td></tr>
@@ -1543,10 +1729,12 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     <strong>2. PORT OF LOADING</strong><br>${escapeHtml(settings.port)}<br>
     <strong>3. TERMS OF PAYMENT</strong><br>${textToHtml(settings.payment)}<br>
     <strong>4. PACKING</strong><br>${textToHtml(settings.packing)}<br>
-    <strong>5. REMARK</strong><br>
+    <strong>5. T/T Remittance</strong><br>
     Beneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH<br>
+    Beneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA<br>
     Beneficiary bank Swift Code: BKCHCNBJ92H<br>
     Beneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.<br>
+    Beneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA<br>
     Beneficiary Account No.: 380558343961
   </div>
   <div class="signature"><div>SELLER: (STAMP)</div><div>BUYER: (STAMP)</div></div>
@@ -1624,6 +1812,237 @@ function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
 </html>`;
 }
 
+function xlsxContentTypesXml(imageEntries) {
+  const imageDefaults = [...new Set(imageEntries.map((entry) => entry.extension))]
+    .map((extension) => `<Default Extension="${extension}" ContentType="${extension === "png" ? "image/png" : "image/jpeg"}"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  ${imageDefaults}
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  ${imageEntries.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}
+</Types>`;
+}
+
+function xlsxRootRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+}
+
+function xlsxWorkbookXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Quotation Template" sheetId="1" r:id="rId1"/></sheets>
+  <calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/>
+</workbook>`;
+}
+
+function xlsxWorkbookRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+}
+
+function xlsxSheetRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+</Relationships>`;
+}
+
+function xlsxStylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="12"/><name val="Arial"/></font></fonts>
+  <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE9EF"/><bgColor indexed="64"/></patternFill></fill></fills>
+  <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF333333"/></left><right style="thin"><color rgb="FF333333"/></right><top style="thin"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF333333"/></bottom><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="8">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="2" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="4" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="1" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+}
+
+function xlsxDrawingXml(imageEntries) {
+  const anchors = imageEntries.map((entry, index) => `
+  <xdr:twoCellAnchor editAs="oneCell">
+    <xdr:from><xdr:col>0</xdr:col><xdr:colOff>80000</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>80000</xdr:rowOff></xdr:from>
+    <xdr:to><xdr:col>1</xdr:col><xdr:colOff>80000</xdr:colOff><xdr:row>${entry.endRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+    <xdr:pic>
+      <xdr:nvPicPr><xdr:cNvPr id="${index + 2}" name="Picture ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
+      <xdr:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
+      <xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+    </xdr:pic>
+    <xdr:clientData/>
+  </xdr:twoCellAnchor>`).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors}</xdr:wsDr>`;
+}
+
+function xlsxDrawingRelsXml(imageEntries) {
+  const relationships = imageEntries.map((entry) =>
+    `<Relationship Id="${entry.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${entry.mediaName}"/>`
+  ).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships}</Relationships>`;
+}
+
+function xlsxDetailRows(line) {
+  return [
+    ["Name:", line.description],
+    ["Size:", line.volume || line.name],
+    ["Material:", line.material],
+    ["Finishing:", line.finishing],
+    ["Packaging:", line.packagingText],
+    ["RMB Price:", fixedNumber(line.baseUnitRmb, 2)],
+    ["Remark:", line.nested ? "Nested inside larger item; no extra CBM" : ""]
+  ];
+}
+
+function buildPackingListSheetXml(lines, settings, imageEntries) {
+  const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+  const totals = documentTotals(lines);
+  const rows = [];
+  const merges = ["A1:A2", "B1:C2", "D1:D2", "E1:E2", "F1:H1", "I1:I2", "M1:M2", "N1:N2", "O1:O2", "P1:P2"];
+
+  rows.push(xlsxRow(1, [
+    xlsxStringCell(1, 1, "Photo", 1),
+    xlsxStringCell(2, 1, "Description", 1),
+    xlsxStringCell(4, 1, `FOB\n${settings.port}\nUSD/Each`, 1),
+    xlsxStringCell(5, 1, "Packing\nQty/Ctn", 1),
+    xlsxStringCell(6, 1, "Measurement", 1),
+    xlsxStringCell(9, 1, "CTN\nCBM", 1),
+    xlsxStringCell(10, 1, "Unit\nWeight", 1),
+    xlsxStringCell(11, 1, "Carton\nWeight", 1),
+    xlsxStringCell(12, 1, "QTY", 1),
+    xlsxStringCell(13, 1, "Carton\nQTY", 1),
+    xlsxStringCell(14, 1, "Order\nQTY", 1),
+    xlsxStringCell(15, 1, "FOB TOTAL $", 1),
+    xlsxStringCell(16, 1, "CBM", 1)
+  ], 34));
+  rows.push(xlsxRow(2, [
+    xlsxStringCell(6, 2, "L", 1),
+    xlsxStringCell(7, 2, "W", 1),
+    xlsxStringCell(8, 2, "H", 1),
+    xlsxStringCell(10, 2, "kg/pc", 1),
+    xlsxStringCell(11, 2, "kg/ctn", 1),
+    xlsxStringCell(12, 2, container.label, 1)
+  ], 24));
+
+  lines.forEach((line, index) => {
+    const startRow = 3 + index * 7;
+    const endRow = startRow + 6;
+    ["A", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"].forEach((column) => {
+      merges.push(`${column}${startRow}:${column}${endRow}`);
+    });
+
+    xlsxDetailRows(line).forEach(([label, value], offset) => {
+      const rowNumber = startRow + offset;
+      const cells = [
+        xlsxStringCell(2, rowNumber, label, 2),
+        xlsxStringCell(3, rowNumber, value, 3)
+      ];
+      if (offset === 0) {
+        cells.unshift(xlsxBlankCell(1, rowNumber, 7));
+        cells.push(
+          xlsxNumberCell(4, rowNumber, fixedNumber(line.unitUsd, 2), 5),
+          xlsxNumberCell(5, rowNumber, line.cartonQty, 6),
+          xlsxNumberCell(6, rowNumber, line.length, 4),
+          xlsxNumberCell(7, rowNumber, line.width, 4),
+          xlsxNumberCell(8, rowNumber, line.height, 4),
+          xlsxFormulaCell(9, rowNumber, `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`, line.cartonCbm, 5),
+          xlsxNumberCell(10, rowNumber, line.unitWeightKg === "" ? "" : line.unitWeightKg, 4),
+          xlsxNumberCell(11, rowNumber, line.cartonWeightKg === "" ? "" : line.cartonWeightKg, 4),
+          xlsxFormulaCell(12, rowNumber, `IFERROR(${container.volume}/I${startRow}*E${startRow},"")`, line.containerCapacity, 4),
+          xlsxFormulaCell(13, rowNumber, `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`, line.cartonQty ? line.orderQty / line.cartonQty : "", 4),
+          xlsxNumberCell(14, rowNumber, line.orderQty, 6),
+          xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, line.totalUsd, 5),
+          xlsxFormulaCell(16, rowNumber, line.nested ? "0" : `IF(OR(N${startRow}="",E${startRow}="",I${startRow}=""),"",N${startRow}/E${startRow}*I${startRow})`, line.totalCbm, 5)
+        );
+      }
+      rows.push(xlsxRow(rowNumber, cells, offset === 0 ? 36 : 24));
+    });
+  });
+
+  const totalRow = lines.length ? 3 + lines.length * 7 : 3;
+  const sumRangeEnd = Math.max(3, totalRow - 1);
+  const totalCartonsByFormula = lines.reduce((sum, line) => sum + (line.cartonQty ? line.orderQty / line.cartonQty : 0), 0);
+  rows.push(xlsxRow(totalRow, [
+    xlsxStringCell(12, totalRow, "Total", 2),
+    xlsxFormulaCell(13, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",M$3:M$${sumRangeEnd})`, totalCartonsByFormula, 4),
+    xlsxFormulaCell(14, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",N$3:N$${sumRangeEnd})`, totals.totalQty, 6),
+    xlsxFormulaCell(15, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",O$3:O$${sumRangeEnd})`, totals.totalUsd, 5),
+    xlsxFormulaCell(16, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",P$3:P$${sumRangeEnd})`, totals.totalCbm, 5)
+  ], 26));
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  <cols>
+    <col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="11" customWidth="1"/><col min="3" max="3" width="34" customWidth="1"/><col min="4" max="4" width="12" customWidth="1"/><col min="5" max="5" width="10" customWidth="1"/><col min="6" max="8" width="8" customWidth="1"/><col min="9" max="9" width="11" customWidth="1"/><col min="10" max="10" width="11" customWidth="1"/><col min="11" max="11" width="12" customWidth="1"/><col min="12" max="12" width="10" customWidth="1"/><col min="13" max="14" width="11" customWidth="1"/><col min="15" max="15" width="13" customWidth="1"/><col min="16" max="16" width="10" customWidth="1"/>
+  </cols>
+  <sheetData>${rows.join("")}</sheetData>
+  <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
+  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
+</worksheet>`;
+}
+
+function buildPackingListXlsxBlob(lines, settings = readDocSettingsFromForm()) {
+  const imageEntries = [];
+  const mediaFiles = [];
+  lines.forEach((line, index) => {
+    const image = dataUrlToBytes(line.imageData);
+    if (!image) return;
+    const imageIndex = imageEntries.length + 1;
+    const startRow = 3 + index * 7;
+    const mediaName = `image${imageIndex}.${image.extension}`;
+    imageEntries.push({
+      startRow,
+      endRow: startRow + 6,
+      mediaName,
+      relId: `rId${imageIndex}`,
+      extension: image.extension
+    });
+    mediaFiles.push({ name: `xl/media/${mediaName}`, data: image.bytes });
+  });
+
+  const files = [
+    { name: "[Content_Types].xml", data: xlsxContentTypesXml(imageEntries) },
+    { name: "_rels/.rels", data: xlsxRootRelsXml() },
+    { name: "xl/workbook.xml", data: xlsxWorkbookXml() },
+    { name: "xl/_rels/workbook.xml.rels", data: xlsxWorkbookRelsXml() },
+    { name: "xl/styles.xml", data: xlsxStylesXml() },
+    { name: "xl/worksheets/sheet1.xml", data: buildPackingListSheetXml(lines, settings, imageEntries) },
+    ...mediaFiles
+  ];
+  if (imageEntries.length) {
+    files.push(
+      { name: "xl/worksheets/_rels/sheet1.xml.rels", data: xlsxSheetRelsXml() },
+      { name: "xl/drawings/drawing1.xml", data: xlsxDrawingXml(imageEntries) },
+      { name: "xl/drawings/_rels/drawing1.xml.rels", data: xlsxDrawingRelsXml(imageEntries) }
+    );
+  }
+
+  return new Blob([createStoredZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
 function downloadPiFile() {
   const lines = ensureDocumentLines();
   if (!lines) return;
@@ -1651,11 +2070,7 @@ function downloadPackingListFile() {
   const lines = ensureDocumentLines();
   if (!lines) return;
   const settings = readDocSettingsFromForm();
-  downloadTextFile(
-    `Packing_Quotation_${safeFilename(settings.piNo)}.xls`,
-    buildPackingListHtml(lines, settings),
-    "application/vnd.ms-excel;charset=utf-8"
-  );
+  downloadBlobFile(`Packing_Quotation_${safeFilename(settings.piNo)}.xlsx`, buildPackingListXlsxBlob(lines, settings));
 }
 
 function renderSummary() {
@@ -1758,6 +2173,7 @@ function bindInputs() {
     elements.docBuyerAddress,
     elements.docBuyerTaxId,
     elements.docSellerName,
+    elements.docExportAgent,
     elements.docPort,
     elements.docDepositRate,
     elements.docPayment,

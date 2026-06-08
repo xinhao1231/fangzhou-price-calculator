@@ -1,4 +1,4 @@
-const CACHE_NAME = "fangzhou-price-calculator-v10";
+const CACHE_NAME = "fangzhou-price-calculator-v12";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
