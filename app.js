@@ -876,8 +876,10 @@ function textToHtml(value = "") {
 function formatDateForDoc(value) {
   if (!value) return "";
   const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return escapeHtml(value);
-  return `${day}-${month}-${year}`;
+  if (!year || !month || !day) return value;
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthName = monthNames[Math.max(0, Math.min(11, Number(month) - 1))];
+  return `${Number(day)}-${monthName}-${String(year).slice(-2)}`;
 }
 
 function safeFilename(value) {
@@ -902,6 +904,15 @@ function parseWeightKg(value = "") {
 
 function fixedNumber(value, digits = 2) {
   return Number.isFinite(value) ? Number(value).toFixed(digits) : "";
+}
+
+function formatPiUsd(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return `US$${number.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
 }
 
 function downloadTextFile(filename, content, type) {
@@ -1672,18 +1683,18 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   const exportAgentAddress = "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.";
   const rows = lines.map((line) => `
     <tr>
-      <td class="center">${line.no}</td>
-      <td class="photo-cell">${imagePreviewHtml(line.imageData, line.name)}</td>
+      <td><strong>${escapeHtml(line.description)}</strong></td>
       <td>
-        <strong>${escapeHtml(line.description)}</strong><br>
-        ${escapeHtml(line.material)}${line.finishing ? `<br>Color/Finishing: ${escapeHtml(line.finishing)}` : ""}<br>
+        ${escapeHtml(line.material)}${line.finishing ? `<br>${escapeHtml(line.finishing)}` : ""}<br>
         Packing: ${escapeHtml(line.packagingText)}
         ${line.nested ? "<br><small>Nested inside larger item</small>" : ""}
       </td>
       <td class="center">${escapeHtml(line.volume)}</td>
       <td class="num">${line.orderQty}</td>
-      <td class="num">US$${fixedNumber(line.unitUsd, 2)}</td>
-      <td class="num">US$${fixedNumber(line.totalUsd, 2)}</td>
+      <td class="num">${fixedNumber(line.cartonCbm, 3)}</td>
+      <td class="num">${fixedNumber(line.totalCbm, 2)}</td>
+      <td class="num">${formatPiUsd(line.unitUsd)}</td>
+      <td class="num">${formatPiUsd(line.totalUsd)}</td>
     </tr>
   `).join("");
 
@@ -1693,24 +1704,25 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
   <meta charset="utf-8">
   <title>PI ${escapeHtml(settings.piNo)}</title>
   <style>
+    @page{size:A3 portrait;margin:12mm}
     body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:11px}
     .company{text-align:center;font-weight:bold;font-size:16px;line-height:1.4;margin-bottom:10px}
     .company span{display:block;font-size:11px;font-weight:normal}
-    .agent-box{border:1px solid #222;padding:7px 8px;margin:8px 0 10px;line-height:1.45}
-    .agent-box strong{display:block;margin-bottom:3px}
-    h1{text-align:center;font-size:20px;margin:8px 0 14px;letter-spacing:1px;text-decoration:underline}
+    h1{text-align:center;font-size:20px;margin:6px 0 22px;letter-spacing:1px;text-decoration:underline}
     table{width:100%;border-collapse:collapse}
     td,th{border:1px solid #222;padding:5px;vertical-align:middle}
-    th{background:#e9eef1}
-    .header td{border:0;padding:3px 0}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
-    .box{border:1px solid #222;padding:8px;min-height:92px;line-height:1.45}
-    .box strong{display:block;margin-bottom:5px}
+    th{font-weight:bold}
+    .meta{width:38%;margin-left:auto;margin-top:-4px;margin-bottom:2px}
+    .meta td{border:0;padding:2px 0}
+    .info{margin:8px 0 22px}
+    .info td{border:0;padding:3px 0;line-height:1.35}
+    .info .label{width:18%;font-weight:bold;vertical-align:top}
+    .info .details{width:82%}
     .center{text-align:center}
     .num{text-align:right;white-space:nowrap}
-    .photo-cell{width:86px;text-align:center}
-    .photo-cell img{max-width:74px;max-height:58px;object-fit:contain}
-    .totals{margin-top:10px;width:45%;margin-left:auto}
+    .product-table th{text-align:center}
+    .product-table td{height:24px}
+    .totals{margin-top:12px;width:34%;margin-left:auto}
     .terms{margin-top:14px;line-height:1.55}
     .signature{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:44px}
     .signature div{border-top:1px solid #333;padding-top:6px;text-align:center}
@@ -1722,43 +1734,50 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     JINHUA WUHU INTERNATIONAL TRADE CO.,LTD
     <span>7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.</span>
   </div>
-  <table class="header">
-    <tr><td><strong>PI NO.</strong> ${escapeHtml(settings.piNo)}</td><td class="num"><strong>DATE:</strong> ${formatDateForDoc(settings.date)}</td></tr>
+  <table class="meta">
+    <tr><td><strong>PI NO.</strong></td><td class="num">${escapeHtml(settings.piNo)}</td></tr>
+    <tr><td><strong>DATE:</strong></td><td class="num">${formatDateForDoc(settings.date)}</td></tr>
   </table>
-  <div class="agent-box">
-    <strong>EXPORT AGENT FOR SELLER:</strong>
-    Name: ${escapeHtml(exportAgentName)}<br>
-    ADD: ${escapeHtml(exportAgentAddress)}
-  </div>
   <h1>PROFORMA_INVOICE</h1>
-  <div class="two-col">
-    <div class="box">
-      <strong>SELLERS:</strong>
-      Name: ${escapeHtml(settings.sellerName)}<br>
+  <table class="info">
+    <tr>
+      <td class="label">BUYERS:</td>
+      <td class="details">Name: ${escapeHtml(settings.buyerName)}<br>
+        Tel/Fax: ${escapeHtml(settings.buyerContact)}<br>
+        ADD: ${textToHtml(settings.buyerAddress)}<br>
+        ${settings.buyerTaxId ? `CNPJ: ${escapeHtml(settings.buyerTaxId)}` : ""}
+      </td>
+    </tr>
+    <tr>
+      <td class="label">SELLERS:</td>
+      <td class="details">Name: ${escapeHtml(settings.sellerName)}<br>
       ATTN: Wyatte Zhou<br>
       Email: wyatte@funzo.info<br>
       Tel: 86 183 9591 7159<br>
       ADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China
-    </div>
-    <div class="box">
-      <strong>BUYERS:</strong>
-      Name: ${escapeHtml(settings.buyerName)}<br>
-      Tel/Fax: ${escapeHtml(settings.buyerContact)}<br>
-      ADD: ${textToHtml(settings.buyerAddress)}<br>
-      ${settings.buyerTaxId ? `CNPJ/Tax ID: ${escapeHtml(settings.buyerTaxId)}` : ""}
-    </div>
-  </div>
-  <table>
+      </td>
+    </tr>
+    <tr>
+      <td class="label">EXPORT AGENT<br>FOR SELLER</td>
+      <td class="details">Name: ${escapeHtml(exportAgentName)}<br>
+        ADD: ${escapeHtml(exportAgentAddress)}
+      </td>
+    </tr>
+  </table>
+  <table class="product-table">
     <thead>
       <tr>
-        <th>ITEM</th><th>PHOTO</th><th>DESCRIPTION</th><th>VOL</th><th>QTY</th><th>UNIT PRICE<br>FOB ${escapeHtml(settings.port)}</th><th>TOTAL USD</th>
+        <th rowspan="2">ITEM</th><th rowspan="2">DESCRIPTION</th><th rowspan="2">VOL</th><th colspan="3">QTY</th><th rowspan="2">UNIT PRICE<br>FOB ${escapeHtml(settings.port)}</th><th rowspan="2">TOTAL USD</th>
+      </tr>
+      <tr>
+        <th>UNT</th><th>CTN</th><th>CBM</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
   <table class="totals">
-    <tr><td>Total</td><td class="num">US$${fixedNumber(totals.totalUsd, 2)}</td></tr>
-    <tr><td>${fixedNumber(settings.depositRate, 0)}% Deposit</td><td class="num">US$${fixedNumber(deposit, 2)}</td></tr>
+    <tr><td>Total:</td><td class="num">${formatPiUsd(totals.totalUsd)}</td></tr>
+    <tr><td>${fixedNumber(settings.depositRate, 0)}% DEPOSIT:</td><td class="num">${formatPiUsd(deposit)}</td></tr>
   </table>
   <div class="terms">
     <strong>1. TIME OF SHIPMENT</strong><br>${textToHtml(settings.shipment)}<br>
@@ -1831,7 +1850,9 @@ function docxTableCell(content, width, options = {}) {
 }
 
 function docxTable(rows, widths, options = {}) {
-  const borders = `<w:tblBorders><w:top w:val="single" w:sz="4" w:color="333333"/><w:left w:val="single" w:sz="4" w:color="333333"/><w:bottom w:val="single" w:sz="4" w:color="333333"/><w:right w:val="single" w:sz="4" w:color="333333"/><w:insideH w:val="single" w:sz="4" w:color="333333"/><w:insideV w:val="single" w:sz="4" w:color="333333"/></w:tblBorders>`;
+  const borders = options.noBorders
+    ? `<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>`
+    : `<w:tblBorders><w:top w:val="single" w:sz="4" w:color="333333"/><w:left w:val="single" w:sz="4" w:color="333333"/><w:bottom w:val="single" w:sz="4" w:color="333333"/><w:right w:val="single" w:sz="4" w:color="333333"/><w:insideH w:val="single" w:sz="4" w:color="333333"/><w:insideV w:val="single" w:sz="4" w:color="333333"/></w:tblBorders>`;
   const grid = widths.map((width) => `<w:gridCol w:w="${width}"/>`).join("");
   return `<w:tbl><w:tblPr><w:tblW w:w="${options.width || widths.reduce((sum, width) => sum + width, 0)}" w:type="dxa"/>${borders}<w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows.join("")}</w:tbl>`;
 }
@@ -1842,9 +1863,8 @@ function docxTableRow(cells) {
 
 function docxPiDescription(line) {
   return [
-    line.description,
     line.material,
-    line.finishing ? `Color/Finishing: ${line.finishing}` : "",
+    line.finishing || "",
     `Packing: ${line.packagingText}`,
     line.nested ? "Nested inside larger item" : ""
   ].filter(Boolean).join("\n");
@@ -1883,52 +1903,71 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
   const deposit = totals.totalUsd * (settings.depositRate / 100);
   const exportAgentName = settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
   const exportAgentAddress = "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.";
-  const imageByLine = new Map(imageEntries.map((entry) => [entry.lineIndex, entry]));
-  const productWidths = [700, 1200, 6100, 900, 1000, 1600, 1600];
-  const headerFill = "D9EAF7";
+  const productWidths = [3100, 4100, 850, 900, 900, 900, 1800, 2100];
   const productRows = [
     docxTableRow([
-      docxTableCell("ITEM", productWidths[0], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell("PHOTO", productWidths[1], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell("DESCRIPTION", productWidths[2], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell("VOL", productWidths[3], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell("QTY", productWidths[4], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell(`UNIT PRICE\nFOB ${settings.port}`, productWidths[5], { fill: headerFill, align: "center", bold: true }),
-      docxTableCell("TOTAL USD", productWidths[6], { fill: headerFill, align: "center", bold: true })
+      docxTableCell("ITEM", productWidths[0], { align: "center", bold: true }),
+      docxTableCell("DESCRIPTION", productWidths[1], { align: "center", bold: true }),
+      docxTableCell("VOL", productWidths[2], { align: "center", bold: true }),
+      docxTableCell("QTY", productWidths[3] + productWidths[4] + productWidths[5], { gridSpan: 3, align: "center", bold: true }),
+      docxTableCell(`UNIT PRICE\nFOB ${settings.port}`, productWidths[6], { align: "center", bold: true }),
+      docxTableCell("TOTAL USD", productWidths[7], { align: "center", bold: true })
+    ]),
+    docxTableRow([
+      docxTableCell("", productWidths[0], { align: "center" }),
+      docxTableCell("", productWidths[1], { align: "center" }),
+      docxTableCell("", productWidths[2], { align: "center" }),
+      docxTableCell("UNT", productWidths[3], { align: "center", bold: true }),
+      docxTableCell("CTN", productWidths[4], { align: "center", bold: true }),
+      docxTableCell("CBM", productWidths[5], { align: "center", bold: true }),
+      docxTableCell("", productWidths[6], { align: "center" }),
+      docxTableCell("", productWidths[7], { align: "center" })
     ])
   ];
   lines.forEach((line) => {
     productRows.push(docxTableRow([
-      docxTableCell(String(line.no), productWidths[0], { align: "center" }),
-      docxTableCell([docxImageParagraph(imageByLine.get(line.no - 1))], productWidths[1], { align: "center" }),
-      docxTableCell(docxPiDescription(line), productWidths[2], { size: 18 }),
-      docxTableCell(line.volume, productWidths[3], { align: "center" }),
-      docxTableCell(String(line.orderQty), productWidths[4], { align: "center" }),
-      docxTableCell(`US$${fixedNumber(line.unitUsd, 2)}`, productWidths[5], { align: "center" }),
-      docxTableCell(`US$${fixedNumber(line.totalUsd, 2)}`, productWidths[6], { align: "center" })
+      docxTableCell(line.description, productWidths[0], { size: 18 }),
+      docxTableCell(docxPiDescription(line), productWidths[1], { size: 18 }),
+      docxTableCell(line.volume, productWidths[2], { align: "center" }),
+      docxTableCell(String(line.orderQty), productWidths[3], { align: "center" }),
+      docxTableCell(fixedNumber(line.cartonCbm, 3), productWidths[4], { align: "center" }),
+      docxTableCell(fixedNumber(line.totalCbm, 2), productWidths[5], { align: "center" }),
+      docxTableCell(formatPiUsd(line.unitUsd), productWidths[6], { align: "center" }),
+      docxTableCell(formatPiUsd(line.totalUsd), productWidths[7], { align: "center" })
     ]));
   });
 
-  const sellerBuyerTable = docxTable([
+  const partyTable = docxTable([
     docxTableRow([
-      docxTableCell(`SELLERS:\nName: ${settings.sellerName}\nATTN: Wyatte Zhou\nEmail: wyatte@funzo.info\nTel: 86 183 9591 7159\nADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China`, 6900, { size: 18 }),
-      docxTableCell(`BUYERS:\nName: ${settings.buyerName}\nTel/Fax: ${settings.buyerContact}\nADD: ${settings.buyerAddress}${settings.buyerTaxId ? `\nCNPJ/Tax ID: ${settings.buyerTaxId}` : ""}`, 6900, { size: 18 })
+      docxTableCell("BUYERS:", 2300, { bold: true }),
+      docxTableCell(`Name: ${settings.buyerName}\nTel/Fax: ${settings.buyerContact}\nADD: ${settings.buyerAddress}${settings.buyerTaxId ? `\nCNPJ: ${settings.buyerTaxId}` : ""}`, 12300, { size: 18 })
+    ]),
+    docxTableRow([
+      docxTableCell("SELLERS:", 2300, { bold: true }),
+      docxTableCell(`Name: ${settings.sellerName}\nATTN: Wyatte Zhou\nEmail: wyatte@funzo.info\nTel: 86 183 9591 7159\nADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China`, 12300, { size: 18 })
+    ]),
+    docxTableRow([
+      docxTableCell("EXPORT AGENT\nFOR SELLER", 2300, { bold: true }),
+      docxTableCell(`Name: ${exportAgentName}\nADD: ${exportAgentAddress}`, 12300, { size: 18 })
     ])
-  ], [6900, 6900]);
+  ], [2300, 12300], { noBorders: true, width: 14600 });
 
   const totalsTable = docxTable([
-    docxTableRow([docxTableCell("Total", 2200, { bold: true }), docxTableCell(`US$${fixedNumber(totals.totalUsd, 2)}`, 2200, { align: "center" })]),
-    docxTableRow([docxTableCell(`${fixedNumber(settings.depositRate, 0)}% Deposit`, 2200, { bold: true }), docxTableCell(`US$${fixedNumber(deposit, 2)}`, 2200, { align: "center" })])
+    docxTableRow([docxTableCell("Total:", 2200, { bold: true }), docxTableCell(formatPiUsd(totals.totalUsd), 2200, { align: "center" })]),
+    docxTableRow([docxTableCell(`${fixedNumber(settings.depositRate, 0)}% DEPOSIT:`, 2200, { bold: true }), docxTableCell(formatPiUsd(deposit), 2200, { align: "center" })])
   ], [2200, 2200], { width: 4400 });
   const piMetaTable = docxTable([
     docxTableRow([
-      docxTableCell(`PI NO. ${settings.piNo}`, 6900, { bold: true }),
-      docxTableCell(`DATE: ${formatDateForDoc(settings.date)}`, 6900, { align: "center", bold: true })
+      docxTableCell("", 9400, {}),
+      docxTableCell(`PI NO.`, 2200, { bold: true }),
+      docxTableCell(settings.piNo, 2400, { align: "center" })
     ]),
     docxTableRow([
-      docxTableCell(`EXPORT AGENT FOR SELLER:\nName: ${exportAgentName}\nADD: ${exportAgentAddress}`, 13800, { gridSpan: 2, bold: true, size: 18 })
+      docxTableCell("", 9400, {}),
+      docxTableCell("DATE:", 2200, { bold: true }),
+      docxTableCell(formatDateForDoc(settings.date), 2400, { align: "center" })
     ])
-  ], [6900, 6900]);
+  ], [9400, 2200, 2400], { noBorders: true, width: 14000 });
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
@@ -1936,9 +1975,9 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
     ${docxParagraph("JINHUA WUHU INTERNATIONAL TRADE CO.,LTD", { align: "center", bold: true, size: 28, after: 40 })}
     ${docxParagraph("7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.", { align: "center", size: 18, after: 80 })}
     ${piMetaTable}
-    ${docxParagraph("PROFORMA_INVOICE", { align: "center", bold: true, size: 30, before: 120, after: 120 })}
-    ${sellerBuyerTable}
-    ${docxParagraph("", { after: 80 })}
+    ${docxParagraph("PROFORMA_INVOICE", { align: "center", bold: true, size: 30, before: 0, after: 180 })}
+    ${partyTable}
+    ${docxParagraph("", { after: 180 })}
     ${docxTable(productRows, productWidths)}
     ${docxParagraph("", { after: 80 })}
     ${totalsTable}
@@ -1948,7 +1987,7 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
     ${docxParagraph(`4. PACKING\n${settings.packing}`, { bold: true, after: 80 })}
     ${docxParagraph("5. T/T Remittance\nBeneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH\nBeneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA\nBeneficiary bank Swift Code: BKCHCNBJ92H\nBeneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.\nBeneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA\nBeneficiary Account No.: 380558343961", { bold: true, after: 160 })}
     ${docxTable([docxTableRow([docxTableCell("SELLER: (STAMP)", 6900, { align: "center" }), docxTableCell("BUYER: (STAMP)", 6900, { align: "center" })])], [6900, 6900])}
-    <w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>
+    <w:sectPr><w:pgSz w:w="16838" w:h="23811"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>
   </w:body>
 </w:document>`;
 }
