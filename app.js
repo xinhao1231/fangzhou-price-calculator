@@ -1,5 +1,6 @@
 const STORAGE_KEY = "fangzhou-price-calculator-v11";
 const MIX_STORAGE_KEY = "fangzhou-price-calculator-mixed-v1";
+const DOC_STORAGE_KEY = "fangzhou-price-calculator-doc-v1";
 
 const CONTAINERS = {
   "20gp": { label: "20GP", volume: 28, price: 3800 },
@@ -428,7 +429,8 @@ const state = {
   exchangeRate: 7.2,
   containerId: "40hq",
   includeFob: false,
-  mixedItems: loadMixedItems()
+  mixedItems: loadMixedItems(),
+  docSettings: loadDocSettings()
 };
 
 const elements = {
@@ -473,7 +475,22 @@ const elements = {
   copyQuote: document.querySelector("#copyQuote"),
   resetPrices: document.querySelector("#resetPrices"),
   exportData: document.querySelector("#exportData"),
-  importData: document.querySelector("#importData")
+  importData: document.querySelector("#importData"),
+  docPiNo: document.querySelector("#docPiNo"),
+  docDate: document.querySelector("#docDate"),
+  docBuyerName: document.querySelector("#docBuyerName"),
+  docBuyerContact: document.querySelector("#docBuyerContact"),
+  docBuyerAddress: document.querySelector("#docBuyerAddress"),
+  docBuyerTaxId: document.querySelector("#docBuyerTaxId"),
+  docSellerName: document.querySelector("#docSellerName"),
+  docPort: document.querySelector("#docPort"),
+  docDepositRate: document.querySelector("#docDepositRate"),
+  docPayment: document.querySelector("#docPayment"),
+  docShipment: document.querySelector("#docShipment"),
+  docPacking: document.querySelector("#docPacking"),
+  downloadPi: document.querySelector("#downloadPi"),
+  printPi: document.querySelector("#printPi"),
+  downloadPackingList: document.querySelector("#downloadPackingList")
 };
 
 function loadProducts() {
@@ -518,6 +535,46 @@ function loadMixedItems() {
   } catch {
     return [];
   }
+}
+
+function todayIso() {
+  const date = new Date();
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function defaultPiNo() {
+  const date = new Date();
+  return `${String(date.getFullYear()).slice(2)}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function defaultDocSettings() {
+  return {
+    piNo: defaultPiNo(),
+    date: todayIso(),
+    buyerName: "",
+    buyerContact: "",
+    buyerAddress: "",
+    buyerTaxId: "",
+    sellerName: "Yongkang Fangzhou Hardware Factory",
+    port: "Ningbo",
+    depositRate: 30,
+    payment: "30% T/T as deposit, balance shall be paid before shipment",
+    shipment: "To be effected by the buyer",
+    packing: "Packing: 1/pc poly bag; 5 layers color reinforced inner box; 5 layers master carton."
+  };
+}
+
+function loadDocSettings() {
+  try {
+    return { ...defaultDocSettings(), ...(JSON.parse(localStorage.getItem(DOC_STORAGE_KEY) || "{}")) };
+  } catch {
+    return defaultDocSettings();
+  }
+}
+
+function persistDocSettings() {
+  localStorage.setItem(DOC_STORAGE_KEY, JSON.stringify(state.docSettings));
 }
 
 function normalizeMixedItem(item) {
@@ -799,6 +856,122 @@ function formatUsd(value) {
 function numberFromInput(input, fallback = 0) {
   const value = Number.parseFloat(input.value);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function textToHtml(value = "") {
+  return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
+function formatDateForDoc(value) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return escapeHtml(value);
+  return `${day}-${month}-${year}`;
+}
+
+function safeFilename(value) {
+  return String(value || "document").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "_");
+}
+
+function parseCartonSpec(spec = "") {
+  const nums = String(spec).match(/\d+(?:\.\d+)?/g) || [];
+  const [length, width, height] = nums.map(Number);
+  return {
+    length: Number.isFinite(length) ? length : "",
+    width: Number.isFinite(width) ? width : "",
+    height: Number.isFinite(height) ? height : ""
+  };
+}
+
+function parseWeightKg(value = "") {
+  const number = Number.parseFloat(String(value).replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(number)) return "";
+  return String(value).toLowerCase().includes("kg") ? number : number / 1000;
+}
+
+function fixedNumber(value, digits = 2) {
+  return Number.isFinite(value) ? Number(value).toFixed(digits) : "";
+}
+
+function downloadTextFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function syncDocSettingsToForm() {
+  elements.docPiNo.value = state.docSettings.piNo || "";
+  elements.docDate.value = state.docSettings.date || todayIso();
+  elements.docBuyerName.value = state.docSettings.buyerName || "";
+  elements.docBuyerContact.value = state.docSettings.buyerContact || "";
+  elements.docBuyerAddress.value = state.docSettings.buyerAddress || "";
+  elements.docBuyerTaxId.value = state.docSettings.buyerTaxId || "";
+  elements.docSellerName.value = state.docSettings.sellerName || "";
+  elements.docPort.value = state.docSettings.port || "Ningbo";
+  elements.docDepositRate.value = state.docSettings.depositRate ?? 30;
+  elements.docPayment.value = state.docSettings.payment || "";
+  elements.docShipment.value = state.docSettings.shipment || "";
+  elements.docPacking.value = state.docSettings.packing || "";
+}
+
+function readDocSettingsFromForm() {
+  state.docSettings = {
+    piNo: elements.docPiNo.value.trim(),
+    date: elements.docDate.value,
+    buyerName: elements.docBuyerName.value.trim(),
+    buyerContact: elements.docBuyerContact.value.trim(),
+    buyerAddress: elements.docBuyerAddress.value.trim(),
+    buyerTaxId: elements.docBuyerTaxId.value.trim(),
+    sellerName: elements.docSellerName.value.trim(),
+    port: elements.docPort.value.trim() || "Ningbo",
+    depositRate: Math.max(0, Math.min(100, numberFromInput(elements.docDepositRate, 30))),
+    payment: elements.docPayment.value.trim(),
+    shipment: elements.docShipment.value.trim(),
+    packing: elements.docPacking.value.trim()
+  };
+  persistDocSettings();
+  return state.docSettings;
+}
+
+function imagePreviewHtml(dataUrl, alt = "Product photo") {
+  if (!dataUrl) return "";
+  return `<img src="${dataUrl}" alt="${escapeHtml(alt)}">`;
+}
+
+function imageFileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 520;
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const context = canvas.getContext("2d");
+        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function setExchangeRateStatus(text) {
@@ -1107,6 +1280,40 @@ function renderMixedFob() {
     });
     nestedLabel.append(nestedInput, nestedText);
 
+    const imageLabel = document.createElement("label");
+    imageLabel.className = "mixed-image";
+    const imageBox = line.imageData
+      ? document.createElement("img")
+      : document.createElement("span");
+    if (line.imageData) {
+      imageBox.src = line.imageData;
+      imageBox.alt = line.name;
+    } else {
+      imageBox.className = "mixed-image-placeholder";
+      imageBox.textContent = "图片";
+    }
+    const imageText = document.createElement("span");
+    imageText.textContent = line.imageData ? "更换图片" : "选择图片";
+    const imageInput = document.createElement("input");
+    imageInput.type = "file";
+    imageInput.accept = "image/*";
+    imageInput.addEventListener("change", async (event) => {
+      const [file] = event.target.files;
+      if (!file) return;
+      try {
+        const saved = state.mixedItems.find((item) => item.id === line.id);
+        if (saved) {
+          saved.imageData = await imageFileToDataUrl(file);
+          persistMixedItems();
+          renderMixedFob();
+          flashSaved("图片已保存");
+        }
+      } catch {
+        flashSaved("图片读取失败");
+      }
+    });
+    imageLabel.append(imageBox, imageText, imageInput);
+
     const stats = document.createElement("dl");
     stats.className = "mixed-line-stats";
     [
@@ -1133,9 +1340,228 @@ function renderMixedFob() {
       renderMixedFob();
     });
 
-    row.append(main, quantityLabel, nestedLabel, stats, remove);
+    row.append(main, quantityLabel, nestedLabel, imageLabel, stats, remove);
     elements.mixedList.append(row);
   });
+}
+
+function documentLines() {
+  const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, 7.2));
+  return calculateMixedFob().lines.map((line, index) => {
+    const dims = parseCartonSpec(line.logistics?.cartonSpec);
+    const cartonQty = Number(line.logistics?.cartonQty) || 0;
+    const orderQty = line.quantity;
+    const cartonCount = cartonQty ? Math.ceil(orderQty / cartonQty) : 0;
+    const unitUsd = line.fobUnitPrice / exchangeRate;
+    const totalUsd = unitUsd * orderQty;
+    return {
+      no: index + 1,
+      name: line.name,
+      imageData: line.imageData || "",
+      cartonQty,
+      cartonSpec: line.logistics?.cartonSpec || "",
+      length: dims.length,
+      width: dims.width,
+      height: dims.height,
+      cartonCbm: Number(line.logistics?.cbm) || 0,
+      unitWeightKg: parseWeightKg(line.logistics?.unitWeight),
+      cartonCount,
+      orderQty,
+      totalCbm: line.totalCbm,
+      unitRmb: line.fobUnitPrice,
+      unitUsd,
+      totalUsd,
+      nested: line.nested
+    };
+  });
+}
+
+function documentTotals(lines) {
+  return {
+    totalQty: lines.reduce((sum, line) => sum + line.orderQty, 0),
+    totalCartons: lines.reduce((sum, line) => sum + line.cartonCount, 0),
+    totalCbm: lines.reduce((sum, line) => sum + line.totalCbm, 0),
+    totalUsd: lines.reduce((sum, line) => sum + line.totalUsd, 0)
+  };
+}
+
+function ensureDocumentLines() {
+  const lines = documentLines();
+  if (lines.length) return lines;
+  flashSaved("请先加入混装");
+  return null;
+}
+
+function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
+  const totals = documentTotals(lines);
+  const deposit = totals.totalUsd * (settings.depositRate / 100);
+  const rows = lines.map((line) => `
+    <tr>
+      <td>${line.no}</td>
+      <td class="photo-cell">${imagePreviewHtml(line.imageData, line.name)}</td>
+      <td>${escapeHtml(line.name)}${line.nested ? "<br><small>Nested inside larger item</small>" : ""}</td>
+      <td>${escapeHtml(inferPackagingSizeFromName(line.name)?.toUpperCase() || "")}</td>
+      <td class="num">${line.orderQty}</td>
+      <td class="num">US$${fixedNumber(line.unitUsd, 2)}</td>
+      <td class="num">US$${fixedNumber(line.totalUsd, 2)}</td>
+    </tr>
+  `).join("");
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PI ${escapeHtml(settings.piNo)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:12px}
+    h1{text-align:center;font-size:22px;margin:8px 0 18px;letter-spacing:1px}
+    table{width:100%;border-collapse:collapse}
+    td,th{border:1px solid #333;padding:6px;vertical-align:middle}
+    th{background:#f0f0f0}
+    .header td{border:0;padding:3px 0}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+    .box{border:1px solid #333;padding:8px;min-height:86px}
+    .box strong{display:block;margin-bottom:5px}
+    .num{text-align:right;white-space:nowrap}
+    .photo-cell{width:86px;text-align:center}
+    .photo-cell img{max-width:74px;max-height:58px;object-fit:contain}
+    .totals{margin-top:10px;width:45%;margin-left:auto}
+    .terms{margin-top:14px;line-height:1.55}
+    .signature{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:44px}
+    .signature div{border-top:1px solid #333;padding-top:6px;text-align:center}
+    @media print{body{margin:14mm}.no-print{display:none}}
+  </style>
+</head>
+<body>
+  <table class="header">
+    <tr><td><strong>PI NO.</strong> ${escapeHtml(settings.piNo)}</td><td class="num"><strong>DATE:</strong> ${formatDateForDoc(settings.date)}</td></tr>
+  </table>
+  <h1>PROFORMA INVOICE</h1>
+  <div class="two-col">
+    <div class="box">
+      <strong>SELLERS:</strong>
+      Name: ${escapeHtml(settings.sellerName)}<br>
+      ATTN: Wyatte Zhou<br>
+      Email: wyatte@funzo.info<br>
+      Tel: 86 183 9591 7159<br>
+      ADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China
+    </div>
+    <div class="box">
+      <strong>BUYERS:</strong>
+      Name: ${escapeHtml(settings.buyerName)}<br>
+      Tel/Fax: ${escapeHtml(settings.buyerContact)}<br>
+      ADD: ${textToHtml(settings.buyerAddress)}<br>
+      ${settings.buyerTaxId ? `CNPJ/Tax ID: ${escapeHtml(settings.buyerTaxId)}` : ""}
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ITEM</th><th>PHOTO</th><th>DESCRIPTION</th><th>VOL</th><th>QTY</th><th>UNIT PRICE<br>FOB ${escapeHtml(settings.port)}</th><th>TOTAL USD</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <table class="totals">
+    <tr><td>Total</td><td class="num">US$${fixedNumber(totals.totalUsd, 2)}</td></tr>
+    <tr><td>${fixedNumber(settings.depositRate, 0)}% Deposit</td><td class="num">US$${fixedNumber(deposit, 2)}</td></tr>
+  </table>
+  <div class="terms">
+    <strong>1. TIME OF SHIPMENT</strong><br>${textToHtml(settings.shipment)}<br>
+    <strong>2. PORT OF LOADING</strong><br>${escapeHtml(settings.port)}<br>
+    <strong>3. TERMS OF PAYMENT</strong><br>${textToHtml(settings.payment)}<br>
+    <strong>4. PACKING</strong><br>${textToHtml(settings.packing)}<br>
+    <strong>5. REMARK</strong><br>
+    Beneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH<br>
+    Beneficiary bank Swift Code: BKCHCNBJ92H<br>
+    Beneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.<br>
+    Beneficiary Account No.: 380558343961
+  </div>
+  <div class="signature"><div>SELLER: (STAMP)</div><div>BUYER: (STAMP)</div></div>
+</body>
+</html>`;
+}
+
+function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
+  const totals = documentTotals(lines);
+  const rows = lines.map((line) => `
+    <tr>
+      <td>${imagePreviewHtml(line.imageData, line.name)}</td>
+      <td>${escapeHtml(line.name)}${line.nested ? "<br>Nested inside larger item" : ""}</td>
+      <td>${fixedNumber(line.unitUsd, 2)}</td>
+      <td>${line.cartonQty || ""}</td>
+      <td>${line.length}</td>
+      <td>${line.width}</td>
+      <td>${line.height}</td>
+      <td>${fixedNumber(line.cartonCbm, 4)}</td>
+      <td>${line.unitWeightKg === "" ? "" : fixedNumber(line.unitWeightKg, 3)}</td>
+      <td>${line.cartonCount || ""}</td>
+      <td>${line.orderQty}</td>
+      <td>${fixedNumber(line.totalUsd, 2)}</td>
+      <td>${fixedNumber(line.totalCbm, 3)}</td>
+    </tr>
+  `).join("");
+  return `<!doctype html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+  <meta charset="utf-8">
+  <style>
+    table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}
+    td,th{border:1px solid #333;padding:6px;vertical-align:middle}
+    th{background:#eaf2f4;font-weight:bold;text-align:center}
+    img{max-width:72px;max-height:54px;object-fit:contain}
+    .title{font-size:18px;font-weight:bold;text-align:center}
+    .num{text-align:right}
+  </style>
+</head>
+<body>
+  <table>
+    <tr><td class="title" colspan="13">Quotation & Packing List - ${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</td></tr>
+    <tr><td colspan="2">PI NO.</td><td colspan="3">${escapeHtml(settings.piNo)}</td><td colspan="2">Date</td><td colspan="6">${formatDateForDoc(settings.date)}</td></tr>
+    <tr><td colspan="2">Buyer</td><td colspan="11">${escapeHtml(settings.buyerName)}</td></tr>
+    <tr>
+      <th>Photo</th><th>Description</th><th>FOB<br>${escapeHtml(settings.port)}<br>USD/Each</th><th>Packing<br>Qty/Ctn</th>
+      <th>L</th><th>W</th><th>H</th><th>CTN<br>CBM</th><th>Unit<br>Weight kg</th><th>Carton<br>QTY</th><th>Order<br>QTY</th><th>FOB TOTAL $</th><th>CBM</th>
+    </tr>
+    ${rows}
+    <tr><td colspan="9" class="num"><strong>Total</strong></td><td>${totals.totalCartons}</td><td>${totals.totalQty}</td><td>${fixedNumber(totals.totalUsd, 2)}</td><td>${fixedNumber(totals.totalCbm, 3)}</td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function downloadPiFile() {
+  const lines = ensureDocumentLines();
+  if (!lines) return;
+  const settings = readDocSettingsFromForm();
+  downloadTextFile(`PI_${safeFilename(settings.piNo)}.html`, buildPiHtml(lines, settings), "text/html;charset=utf-8");
+}
+
+function printPiFile() {
+  const lines = ensureDocumentLines();
+  if (!lines) return;
+  const settings = readDocSettingsFromForm();
+  const win = window.open("", "_blank");
+  if (!win) {
+    flashSaved("浏览器阻止了打印窗口");
+    return;
+  }
+  win.document.open();
+  win.document.write(buildPiHtml(lines, settings));
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
+function downloadPackingListFile() {
+  const lines = ensureDocumentLines();
+  if (!lines) return;
+  const settings = readDocSettingsFromForm();
+  downloadTextFile(
+    `Packing_Quotation_${safeFilename(settings.piNo)}.xls`,
+    buildPackingListHtml(lines, settings),
+    "application/vnd.ms-excel;charset=utf-8"
+  );
 }
 
 function renderSummary() {
@@ -1199,7 +1625,7 @@ function exposeSavedData() {
     dataNode.hidden = true;
     document.body.append(dataNode);
   }
-  dataNode.textContent = JSON.stringify({ version: 11, products: state.products });
+  dataNode.textContent = JSON.stringify({ version: 11, products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings });
 }
 
 function bindInputs() {
@@ -1229,6 +1655,27 @@ function bindInputs() {
   });
 
   elements.addMixedItem.addEventListener("click", addCurrentToMixed);
+
+  [
+    elements.docPiNo,
+    elements.docDate,
+    elements.docBuyerName,
+    elements.docBuyerContact,
+    elements.docBuyerAddress,
+    elements.docBuyerTaxId,
+    elements.docSellerName,
+    elements.docPort,
+    elements.docDepositRate,
+    elements.docPayment,
+    elements.docShipment,
+    elements.docPacking
+  ].forEach((input) => {
+    input.addEventListener("input", readDocSettingsFromForm);
+  });
+
+  elements.downloadPi.addEventListener("click", downloadPiFile);
+  elements.printPi.addEventListener("click", printPiFile);
+  elements.downloadPackingList.addEventListener("click", downloadPackingListFile);
 
   elements.clearMixedItems.addEventListener("click", () => {
     state.mixedItems = [];
@@ -1263,7 +1710,7 @@ function bindInputs() {
   });
 
   elements.exportData.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify({ products: state.products, mixedItems: state.mixedItems }, null, 2)], {
+    const blob = new Blob([JSON.stringify({ products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings }, null, 2)], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
@@ -1287,11 +1734,14 @@ function bindInputs() {
             id: item.id || `imported-${Date.now()}-${index}`
           }))
         : state.mixedItems;
+      state.docSettings = { ...state.docSettings, ...(imported.docSettings || {}) };
       state.productId = state.products[0].id;
       selectFirstOption(state.products[0]);
       syncUnitPrice();
+      syncDocSettingsToForm();
       persistProducts();
       persistMixedItems();
+      persistDocSettings();
       render();
       flashSaved("导入成功");
     } catch {
@@ -1314,8 +1764,9 @@ if ("caches" in window) {
   }).catch(() => {});
 }
 
-bindInputs();
 syncUnitPrice();
+syncDocSettingsToForm();
+bindInputs();
 render();
 updateExchangeRate(true);
 persistProducts();
