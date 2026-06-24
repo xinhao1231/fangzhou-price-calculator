@@ -976,9 +976,9 @@ function xlsxFormulaCell(columnIndex, rowIndex, formula, cachedValue = "", style
   return `<c r="${xlsxCellRef(columnIndex, rowIndex)}" s="${style}"><f>${xmlEscape(formula)}</f>${cached}</c>`;
 }
 
-function xlsxRow(rowIndex, cells, height = "") {
+function xlsxRow(rowIndex, cells, height = "", spans = "1:16") {
   const heightAttr = height ? ` ht="${height}" customHeight="1"` : "";
-  return `<row r="${rowIndex}" spans="1:16"${heightAttr}>${cells.join("")}</row>`;
+  return `<row r="${rowIndex}" spans="${spans}"${heightAttr}>${cells.join("")}</row>`;
 }
 
 function xlsxFullRow(rowIndex, cellMap = {}, defaultStyle = 3, height = "") {
@@ -987,6 +987,14 @@ function xlsxFullRow(rowIndex, cellMap = {}, defaultStyle = 3, height = "") {
     cells.push(cellMap[column] || xlsxBlankCell(column, rowIndex, defaultStyle));
   }
   return xlsxRow(rowIndex, cells, height);
+}
+
+function xlsxPiFullRow(rowIndex, cellMap = {}, defaultStyle = 20, height = "") {
+  const cells = [];
+  for (let column = 1; column <= 8; column += 1) {
+    cells.push(cellMap[column] || xlsxBlankCell(column, rowIndex, defaultStyle));
+  }
+  return xlsxRow(rowIndex, cells, height, "1:8");
 }
 
 function xlsxPackingRow(rowIndex, cellMap = {}, height = "15") {
@@ -2147,10 +2155,10 @@ function xlsxRootRelsXml() {
 </Relationships>`;
 }
 
-function xlsxWorkbookXml() {
+function xlsxWorkbookXml(sheetName = "Quotation Template") {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Quotation Template" sheetId="1" r:id="rId1"/></sheets>
+  <sheets><sheet name="${xmlEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets>
   <calcPr calcId="0" fullCalcOnLoad="1" forceFullCalc="1"/>
 </workbook>`;
 }
@@ -2211,11 +2219,72 @@ function xlsxStylesXml() {
 </styleSheet>`;
 }
 
+function xlsxPiStylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="1">
+    <numFmt numFmtId="164" formatCode="&quot;US$&quot;#,##0.00"/>
+  </numFmts>
+  <fonts count="9">
+    <font><sz val="10"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF173B3F"/><sz val="16"/><name val="Arial"/></font>
+    <font><color rgb="FF444444"/><sz val="9"/><name val="Arial"/></font>
+    <font><i/><color rgb="FF666666"/><sz val="9"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF173B3F"/><sz val="18"/><name val="Arial"/></font>
+    <font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Arial"/></font>
+    <font><sz val="10"/><name val="Arial"/></font>
+    <font><b/><sz val="10"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF173B3F"/><sz val="11"/><name val="Arial"/></font>
+  </fonts>
+  <fills count="8">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF234E52"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F6"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF3F5F6"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF3D6B8A"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="4">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFD9D9D9"/></left><right style="thin"><color rgb="FFD9D9D9"/></right><top style="thin"><color rgb="FFD9D9D9"/></top><bottom style="thin"><color rgb="FFD9D9D9"/></bottom><diagonal/></border>
+    <border><left style="thin"><color rgb="FF333333"/></left><right style="thin"><color rgb="FF333333"/></right><top style="thin"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF333333"/></bottom><diagonal/></border>
+    <border><left style="medium"><color rgb="FF333333"/></left><right style="medium"><color rgb="FF333333"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="medium"><color rgb="FF333333"/></bottom><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="21">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="4" borderId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="4" borderId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="4" borderId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="3" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="2" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="2" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="5" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="7" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="2" fontId="6" fillId="4" borderId="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="164" fontId="6" fillId="4" borderId="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="6" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="6" borderId="2" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="5" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="8" fillId="5" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="4" borderId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+}
+
 function xlsxDrawingXml(imageEntries) {
   const anchors = imageEntries.map((entry, index) => `
   <xdr:twoCellAnchor editAs="oneCell">
-    <xdr:from><xdr:col>0</xdr:col><xdr:colOff>80000</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>80000</xdr:rowOff></xdr:from>
-    <xdr:to><xdr:col>1</xdr:col><xdr:colOff>80000</xdr:colOff><xdr:row>${entry.endRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+    <xdr:from><xdr:col>${entry.startCol ?? 0}</xdr:col><xdr:colOff>${entry.startColOff ?? 80000}</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>${entry.startRowOff ?? 80000}</xdr:rowOff></xdr:from>
+    <xdr:to><xdr:col>${entry.endCol ?? 1}</xdr:col><xdr:colOff>${entry.endColOff ?? 80000}</xdr:colOff><xdr:row>${entry.endRow}</xdr:row><xdr:rowOff>${entry.endRowOff ?? 0}</xdr:rowOff></xdr:to>
     <xdr:pic>
       <xdr:nvPicPr><xdr:cNvPr id="${index + 2}" name="Picture ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
       <xdr:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
@@ -2334,6 +2403,250 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
 </worksheet>`;
 }
 
+function piLayoutRows(lines) {
+  const productStartRow = 14;
+  const totalRow = productStartRow + lines.length;
+  const depositRow = totalRow + 1;
+  const termsHeaderRow = depositRow + 3;
+  const bankRow = termsHeaderRow + 6;
+  const signatureHeaderRow = bankRow + 2;
+  const signatureBoxStartRow = signatureHeaderRow + 1;
+  const signatureBoxEndRow = signatureHeaderRow + 5;
+  return {
+    productStartRow,
+    totalRow,
+    depositRow,
+    termsHeaderRow,
+    bankRow,
+    signatureHeaderRow,
+    signatureBoxStartRow,
+    signatureBoxEndRow
+  };
+}
+
+function piBankDetails() {
+  return [
+    "Beneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH",
+    "Beneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA",
+    "Beneficiary bank Swift Code: BKCHCNBJ92H",
+    "Beneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.",
+    "Beneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA",
+    "Beneficiary Account No.: 380558343961"
+  ].join("\n");
+}
+
+function buildPiXlsxSheetXml(lines, settings, imageEntries = []) {
+  const totals = documentTotals(lines);
+  const layout = piLayoutRows(lines);
+  const exportAgentName = settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
+  const exportAgentAddress = "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.";
+  const rows = [];
+  const merges = [
+    "A1:H1",
+    "A2:H2",
+    "A3:H3",
+    "A4:H4",
+    "A5:B5",
+    "C5:D5",
+    "E5:F5",
+    "G5:H5",
+    "A6:H6",
+    "B7:H7",
+    "B8:H8",
+    "B9:H9",
+    "A11:H11",
+    "A12:A13",
+    "B12:B13",
+    "C12:C13",
+    "D12:F12",
+    "G12:G13",
+    "H12:H13"
+  ];
+
+  rows.push(xlsxPiFullRow(1, { 1: xlsxStringCell(1, 1, "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD", 1) }, 1, "28"));
+  rows.push(xlsxPiFullRow(2, { 1: xlsxStringCell(1, 2, "7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.", 2) }, 2, "22"));
+  rows.push(xlsxPiFullRow(3, { 1: xlsxStringCell(1, 3, PI_VALIDITY_NOTE, 3) }, 3, "32"));
+  rows.push(xlsxPiFullRow(4, { 1: xlsxStringCell(1, 4, "PROFORMA INVOICE", 4) }, 4, "32"));
+  rows.push(xlsxPiFullRow(5, {
+    1: xlsxStringCell(1, 5, "PI NO.", 5),
+    2: xlsxBlankCell(2, 5, 5),
+    3: xlsxStringCell(3, 5, settings.piNo, 6),
+    4: xlsxBlankCell(4, 5, 6),
+    5: xlsxStringCell(5, 5, "DATE", 5),
+    6: xlsxBlankCell(6, 5, 5),
+    7: xlsxStringCell(7, 5, formatDateForDoc(settings.date), 6),
+    8: xlsxBlankCell(8, 5, 6)
+  }, 20, "24"));
+  rows.push(xlsxPiFullRow(6, { 1: xlsxStringCell(1, 6, "PARTIES", 7) }, 7, "22"));
+  rows.push(xlsxPiFullRow(7, {
+    1: xlsxStringCell(1, 7, "BUYERS", 8),
+    2: xlsxStringCell(2, 7, `Name: ${settings.buyerName}\nTel/Fax: ${settings.buyerContact}\nADD: ${settings.buyerAddress}${settings.buyerTaxId ? `\nCNPJ: ${settings.buyerTaxId}` : ""}`, 9)
+  }, 9, "66"));
+  rows.push(xlsxPiFullRow(8, {
+    1: xlsxStringCell(1, 8, "SELLERS", 8),
+    2: xlsxStringCell(2, 8, `Name: ${settings.sellerName}\nATTN: Wyatte Zhou\nEmail: wyatte@funzo.info\nTel: 86 183 9591 7159\nADD: Fangzhou Hardware Products Factory, No. 88 Feifeng Road, Yongkang City, Jinhua City, Zhejiang Province, China`, 9)
+  }, 9, "80"));
+  rows.push(xlsxPiFullRow(9, {
+    1: xlsxStringCell(1, 9, "EXPORT AGENT\nFOR SELLER", 8),
+    2: xlsxStringCell(2, 9, `Name: ${exportAgentName}\nADD: ${exportAgentAddress}`, 9)
+  }, 9, "48"));
+  rows.push(xlsxPiFullRow(10, {}, 20, "8"));
+  rows.push(xlsxPiFullRow(11, { 1: xlsxStringCell(1, 11, "PRODUCT DETAILS", 7) }, 7, "22"));
+  rows.push(xlsxPiFullRow(12, {
+    1: xlsxStringCell(1, 12, "ITEM", 10),
+    2: xlsxStringCell(2, 12, "DESCRIPTION", 10),
+    3: xlsxStringCell(3, 12, "VOL", 10),
+    4: xlsxStringCell(4, 12, "QTY", 10),
+    7: xlsxStringCell(7, 12, `UNIT PRICE\nFOB ${settings.port}`, 10),
+    8: xlsxStringCell(8, 12, "TOTAL USD", 10)
+  }, 10, "28"));
+  rows.push(xlsxPiFullRow(13, {
+    4: xlsxStringCell(4, 13, "UNT", 10),
+    5: xlsxStringCell(5, 13, "CTN", 10),
+    6: xlsxStringCell(6, 13, "CBM", 10)
+  }, 10, "24"));
+
+  lines.forEach((line, index) => {
+    const rowNumber = layout.productStartRow + index;
+    const cartonQty = Number(line.cartonQty) || 0;
+    const cartonCbm = Number(line.cartonCbm) || 0;
+    const descriptionDetails = [
+      line.material,
+      line.finishing,
+      `Packing: ${line.packagingText}`,
+      line.nested ? "Nested inside larger item; no extra CBM" : ""
+    ].filter(Boolean).join("\n");
+    rows.push(xlsxPiFullRow(rowNumber, {
+      1: xlsxStringCell(1, rowNumber, line.description, 11),
+      2: xlsxStringCell(2, rowNumber, descriptionDetails, 11),
+      3: xlsxStringCell(3, rowNumber, line.volume, 11),
+      4: xlsxNumberCell(4, rowNumber, line.orderQty, 12),
+      5: cartonQty
+        ? xlsxFormulaCell(5, rowNumber, `ROUNDUP(D${rowNumber}/${cartonQty},0)`, line.cartonCount, 12)
+        : xlsxNumberCell(5, rowNumber, line.cartonCount, 12),
+      6: line.nested
+        ? xlsxFormulaCell(6, rowNumber, "0", 0, 12)
+        : cartonCbm
+          ? xlsxFormulaCell(6, rowNumber, `E${rowNumber}*${cartonCbm}`, line.totalCbm, 12)
+          : xlsxNumberCell(6, rowNumber, line.totalCbm, 12),
+      7: xlsxNumberCell(7, rowNumber, line.unitUsd, 13),
+      8: xlsxFormulaCell(8, rowNumber, `D${rowNumber}*G${rowNumber}`, line.totalUsd, 13)
+    }, 20, "48"));
+  });
+
+  const lastProductRow = Math.max(layout.productStartRow, layout.totalRow - 1);
+  const totalFormula = lines.length ? `SUM(H${layout.productStartRow}:H${lastProductRow})` : "0";
+  const depositRate = Math.max(0, Math.min(100, Number(settings.depositRate) || 0));
+  const depositMultiplier = Number((depositRate / 100).toFixed(4));
+  rows.push(xlsxPiFullRow(layout.totalRow, {
+    7: xlsxStringCell(7, layout.totalRow, "Total:", 14),
+    8: xlsxFormulaCell(8, layout.totalRow, totalFormula, totals.totalUsd, 15)
+  }, 20, "24"));
+  rows.push(xlsxPiFullRow(layout.depositRow, {
+    7: xlsxStringCell(7, layout.depositRow, `${fixedNumber(depositRate, 0)}% DEPOSIT:`, 14),
+    8: xlsxFormulaCell(8, layout.depositRow, `H${layout.totalRow}*${depositMultiplier}`, totals.totalUsd * depositMultiplier, 15)
+  }, 20, "24"));
+  rows.push(xlsxPiFullRow(layout.depositRow + 1, {}, 20, "8"));
+  rows.push(xlsxPiFullRow(layout.termsHeaderRow, { 1: xlsxStringCell(1, layout.termsHeaderRow, "TERMS", 7) }, 7, "22"));
+  merges.push(`A${layout.termsHeaderRow}:H${layout.termsHeaderRow}`);
+
+  [
+    ["1. TIME OF SHIPMENT", settings.shipment],
+    ["2. PORT OF LOADING", settings.port],
+    ["3. TERMS OF PAYMENT", settings.payment],
+    ["4. PACKING", settings.packing]
+  ].forEach(([label, value], index) => {
+    const rowNumber = layout.termsHeaderRow + 1 + index;
+    const lineCount = Math.max(1, String(value || "").split("\n").length);
+    rows.push(xlsxPiFullRow(rowNumber, {
+      1: xlsxStringCell(1, rowNumber, label, 16),
+      2: xlsxBlankCell(2, rowNumber, 16),
+      3: xlsxStringCell(3, rowNumber, value, 17)
+    }, 17, String(Math.max(28, lineCount * 18))));
+    merges.push(`A${rowNumber}:B${rowNumber}`, `C${rowNumber}:H${rowNumber}`);
+  });
+
+  const remittanceHeaderRow = layout.termsHeaderRow + 5;
+  rows.push(xlsxPiFullRow(remittanceHeaderRow, { 1: xlsxStringCell(1, remittanceHeaderRow, "T/T Remittance", 7) }, 7, "22"));
+  merges.push(`A${remittanceHeaderRow}:H${remittanceHeaderRow}`);
+  rows.push(xlsxPiFullRow(layout.bankRow, { 1: xlsxStringCell(1, layout.bankRow, piBankDetails(), 17) }, 17, "104"));
+  merges.push(`A${layout.bankRow}:H${layout.bankRow}`);
+  rows.push(xlsxPiFullRow(layout.bankRow + 1, {}, 20, "8"));
+  rows.push(xlsxPiFullRow(layout.signatureHeaderRow, {
+    1: xlsxStringCell(1, layout.signatureHeaderRow, "SELLER: (STAMP)", 18),
+    5: xlsxStringCell(5, layout.signatureHeaderRow, "BUYER: (STAMP)", 18)
+  }, 18, "24"));
+  merges.push(`A${layout.signatureHeaderRow}:D${layout.signatureHeaderRow}`, `E${layout.signatureHeaderRow}:H${layout.signatureHeaderRow}`);
+  for (let rowNumber = layout.signatureBoxStartRow; rowNumber <= layout.signatureBoxEndRow; rowNumber += 1) {
+    rows.push(xlsxPiFullRow(rowNumber, {}, 19, "24"));
+  }
+  merges.push(`A${layout.signatureBoxStartRow}:D${layout.signatureBoxEndRow}`, `E${layout.signatureBoxStartRow}:H${layout.signatureBoxEndRow}`);
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
+  <dimension ref="A1:H${layout.signatureBoxEndRow}"/>
+  <sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="13" topLeftCell="A14" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  <cols>
+    <col min="1" max="1" width="24" customWidth="1"/>
+    <col min="2" max="2" width="42" customWidth="1"/>
+    <col min="3" max="3" width="10" customWidth="1"/>
+    <col min="4" max="4" width="12" customWidth="1"/>
+    <col min="5" max="6" width="12" customWidth="1"/>
+    <col min="7" max="8" width="18" customWidth="1"/>
+  </cols>
+  <sheetData>${rows.join("")}</sheetData>
+  <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
+  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
+  <pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
+  <pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>
+</worksheet>`;
+}
+
+async function buildPiXlsxBlob(lines, settings = readDocSettingsFromForm()) {
+  const imageEntries = [];
+  const mediaFiles = [];
+  const layout = piLayoutRows(lines);
+  const sellerStamp = await fetchAssetBytes("seller-stamp.jpg");
+  if (sellerStamp) {
+    const mediaName = `seller-stamp.${sellerStamp.extension}`;
+    imageEntries.push({
+      startRow: layout.signatureBoxStartRow,
+      endRow: layout.signatureBoxEndRow,
+      startCol: 0,
+      endCol: 4,
+      startColOff: 300000,
+      startRowOff: 80000,
+      endColOff: 0,
+      endRowOff: 0,
+      mediaName,
+      relId: "rId1",
+      extension: sellerStamp.extension
+    });
+    mediaFiles.push({ name: `xl/media/${mediaName}`, data: sellerStamp.bytes });
+  }
+
+  const files = [
+    { name: "[Content_Types].xml", data: xlsxContentTypesXml(imageEntries) },
+    { name: "_rels/.rels", data: xlsxRootRelsXml() },
+    { name: "xl/workbook.xml", data: xlsxWorkbookXml("Proforma Invoice") },
+    { name: "xl/_rels/workbook.xml.rels", data: xlsxWorkbookRelsXml() },
+    { name: "xl/styles.xml", data: xlsxPiStylesXml() },
+    { name: "xl/worksheets/sheet1.xml", data: buildPiXlsxSheetXml(lines, settings, imageEntries) },
+    ...mediaFiles
+  ];
+  if (imageEntries.length) {
+    files.push(
+      { name: "xl/worksheets/_rels/sheet1.xml.rels", data: xlsxSheetRelsXml() },
+      { name: "xl/drawings/drawing1.xml", data: xlsxDrawingXml(imageEntries) },
+      { name: "xl/drawings/_rels/drawing1.xml.rels", data: xlsxDrawingRelsXml(imageEntries) }
+    );
+  }
+
+  return new Blob([createStoredZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
 function buildPackingListXlsxBlob(lines, settings = readDocSettingsFromForm()) {
   const imageEntries = [];
   const mediaFiles = [];
@@ -2377,7 +2690,7 @@ async function downloadPiFile() {
   const lines = ensureDocumentLines();
   if (!lines) return;
   const settings = readDocSettingsFromForm();
-  downloadBlobFile(`PI_${safeFilename(settings.piNo)}.docx`, await buildPiDocxBlob(lines, settings));
+  downloadBlobFile(`PI_${safeFilename(settings.piNo)}.xlsx`, await buildPiXlsxBlob(lines, settings));
 }
 
 function printPiFile() {
