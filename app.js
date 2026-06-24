@@ -2,6 +2,7 @@ const STORAGE_KEY = "fangzhou-price-calculator-v11";
 const MIX_STORAGE_KEY = "fangzhou-price-calculator-mixed-v1";
 const DOC_STORAGE_KEY = "fangzhou-price-calculator-doc-v1";
 const PI_VALIDITY_NOTE = "This quotation is valid for 7 days from the date of issue. Pricing may be subject to adjustment thereafter based on exchange rate fluctuations and material costs.";
+const PI_OTHER_CONDITIONS = "The above pricing is based on an exchange rate of USD 1 = RMB 6.73. Should the exchange rate fluctuate by more than 2% at the time of payment, the price will be adjusted proportionally.";
 
 const CONTAINERS = {
   "20gp": { label: "20GP", volume: 28, price: 3800 },
@@ -1714,7 +1715,7 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
       </td>
       <td class="center">${escapeHtml(line.volume)}</td>
       <td class="num">${line.orderQty}</td>
-      <td class="num">${fixedNumber(line.cartonCbm, 3)}</td>
+      <td class="num">${line.cartonCount || ""}</td>
       <td class="num">${fixedNumber(line.totalCbm, 2)}</td>
       <td class="num">${formatPiUsd(line.unitUsd)}</td>
       <td class="num">${formatPiUsd(line.totalUsd)}</td>
@@ -1809,7 +1810,7 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     <strong>1. TIME OF SHIPMENT</strong><br>${textToHtml(settings.shipment)}<br>
     <strong>2. PORT OF LOADING</strong><br>${escapeHtml(settings.port)}<br>
     <strong>3. TERMS OF PAYMENT</strong><br>${textToHtml(settings.payment)}<br>
-    <strong>4. PACKING</strong><br>${textToHtml(settings.packing)}<br>
+    <strong>4. Other conditions:</strong><br>${escapeHtml(PI_OTHER_CONDITIONS)}<br>
     <strong>5. T/T Remittance</strong><br>
     Beneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH<br>
     Beneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA<br>
@@ -1961,7 +1962,7 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries, sellerStampEntry 
       docxTableCell(docxPiDescription(line), productWidths[1], { size: 18 }),
       docxTableCell(line.volume, productWidths[2], { align: "center" }),
       docxTableCell(String(line.orderQty), productWidths[3], { align: "center" }),
-      docxTableCell(fixedNumber(line.cartonCbm, 3), productWidths[4], { align: "center" }),
+      docxTableCell(String(line.cartonCount || ""), productWidths[4], { align: "center" }),
       docxTableCell(fixedNumber(line.totalCbm, 2), productWidths[5], { align: "center" }),
       docxTableCell(formatPiUsd(line.unitUsd), productWidths[6], { align: "center" }),
       docxTableCell(formatPiUsd(line.totalUsd), productWidths[7], { align: "center" })
@@ -2016,7 +2017,7 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries, sellerStampEntry 
     ${docxParagraph(`1. TIME OF SHIPMENT\n${settings.shipment}`, { bold: true, before: 120, after: 80 })}
     ${docxParagraph(`2. PORT OF LOADING\n${settings.port}`, { bold: true, after: 80 })}
     ${docxParagraph(`3. TERMS OF PAYMENT\n${settings.payment}`, { bold: true, after: 80 })}
-    ${docxParagraph(`4. PACKING\n${settings.packing}`, { bold: true, after: 80 })}
+    ${docxParagraph(`4. Other conditions:\n${PI_OTHER_CONDITIONS}`, { bold: true, after: 80 })}
     ${docxParagraph("5. T/T Remittance\nBeneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH\nBeneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA\nBeneficiary bank Swift Code: BKCHCNBJ92H\nBeneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.\nBeneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA\nBeneficiary Account No.: 380558343961", { bold: true, after: 160 })}
     ${docxTable([docxTableRow([
       docxTableCell([
@@ -2562,10 +2563,11 @@ function buildPiXlsxSheetXml(lines, settings, imageEntries = []) {
     ["1. TIME OF SHIPMENT", settings.shipment],
     ["2. PORT OF LOADING", settings.port],
     ["3. TERMS OF PAYMENT", settings.payment],
-    ["4. PACKING", settings.packing]
+    ["4. Other conditions:", PI_OTHER_CONDITIONS]
   ].forEach(([label, value], index) => {
     const rowNumber = layout.termsHeaderRow + 1 + index;
-    const lineCount = Math.max(1, String(value || "").split("\n").length);
+    const valueText = String(value || "");
+    const lineCount = Math.max(1, valueText.split("\n").length, Math.ceil(valueText.length / 95));
     rows.push(xlsxPiFullRow(rowNumber, {
       1: xlsxStringCell(1, rowNumber, label, 16),
       2: xlsxBlankCell(2, rowNumber, 16),
