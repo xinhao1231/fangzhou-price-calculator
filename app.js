@@ -1,6 +1,7 @@
 const STORAGE_KEY = "fangzhou-price-calculator-v11";
 const MIX_STORAGE_KEY = "fangzhou-price-calculator-mixed-v1";
 const DOC_STORAGE_KEY = "fangzhou-price-calculator-doc-v1";
+const PI_VALIDITY_NOTE = "This quotation is valid for 7 days from the date of issue. Pricing may be subject to adjustment thereafter based on exchange rate fluctuations and material costs.";
 
 const CONTAINERS = {
   "20gp": { label: "20GP", volume: 28, price: 3800 },
@@ -1134,6 +1135,20 @@ function dataUrlToBytes(dataUrl = "") {
   return { bytes, mimeType, extension };
 }
 
+async function fetchAssetBytes(path) {
+  try {
+    const response = await fetch(path);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const mimeType = blob.type || (path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+    const extension = mimeType.includes("png") ? "png" : path.toLowerCase().endsWith(".jpg") ? "jpg" : "jpeg";
+    return { bytes, mimeType, extension };
+  } catch {
+    return null;
+  }
+}
+
 function syncDocSettingsToForm() {
   elements.docPiNo.value = state.docSettings.piNo || "";
   elements.docDate.value = state.docSettings.date || todayIso();
@@ -1708,6 +1723,7 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:11px}
     .company{text-align:center;font-weight:bold;font-size:16px;line-height:1.4;margin-bottom:10px}
     .company span{display:block;font-size:11px;font-weight:normal}
+    .validity-note{text-align:center;font-size:10px;font-style:italic;margin:0 0 8px}
     h1{text-align:center;font-size:20px;margin:6px 0 22px;letter-spacing:1px;text-decoration:underline}
     table{width:100%;border-collapse:collapse}
     td,th{border:1px solid #222;padding:5px;vertical-align:middle}
@@ -1725,7 +1741,8 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     .totals{margin-top:12px;width:34%;margin-left:auto}
     .terms{margin-top:14px;line-height:1.55}
     .signature{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:44px}
-    .signature div{border-top:1px solid #333;padding-top:6px;text-align:center}
+    .signature div{border-top:1px solid #333;padding-top:6px;text-align:center;min-height:92px}
+    .seller-stamp{display:block;max-width:260px;max-height:110px;object-fit:contain;margin:8px auto 0}
     @media print{body{margin:14mm}.no-print{display:none}}
   </style>
 </head>
@@ -1734,6 +1751,7 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     JINHUA WUHU INTERNATIONAL TRADE CO.,LTD
     <span>7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.</span>
   </div>
+  <div class="validity-note">${escapeHtml(PI_VALIDITY_NOTE)}</div>
   <table class="meta">
     <tr><td><strong>PI NO.</strong></td><td class="num">${escapeHtml(settings.piNo)}</td></tr>
     <tr><td><strong>DATE:</strong></td><td class="num">${formatDateForDoc(settings.date)}</td></tr>
@@ -1792,7 +1810,10 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     Beneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA<br>
     Beneficiary Account No.: 380558343961
   </div>
-  <div class="signature"><div>SELLER: (STAMP)</div><div>BUYER: (STAMP)</div></div>
+  <div class="signature">
+    <div>SELLER: (STAMP)<img class="seller-stamp" src="seller-stamp.jpg" alt="Seller stamp"></div>
+    <div>BUYER: (STAMP)</div>
+  </div>
 </body>
 </html>`;
 }
@@ -1822,11 +1843,13 @@ function docxParagraph(text = "", options = {}) {
   return `<w:p><w:pPr>${pPr}</w:pPr>${runs || docxRun("", options)}</w:p>`;
 }
 
-function docxImageParagraph(entry) {
+function docxImageParagraph(entry, options = {}) {
   if (!entry) return docxParagraph("");
+  const cx = options.cx || 950000;
+  const cy = options.cy || 720000;
   return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:drawing>
     <wp:inline distT="0" distB="0" distL="0" distR="0">
-      <wp:extent cx="950000" cy="720000"/>
+      <wp:extent cx="${cx}" cy="${cy}"/>
       <wp:effectExtent l="0" t="0" r="0" b="0"/>
       <wp:docPr id="${entry.docPrId}" name="Product ${entry.docPrId}"/>
       <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
@@ -1834,7 +1857,7 @@ function docxImageParagraph(entry) {
         <pic:pic>
           <pic:nvPicPr><pic:cNvPr id="${entry.docPrId}" name="${docxText(entry.mediaName)}"/><pic:cNvPicPr/></pic:nvPicPr>
           <pic:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-          <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="950000" cy="720000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+          <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
         </pic:pic>
       </a:graphicData></a:graphic>
     </wp:inline>
@@ -1898,7 +1921,7 @@ function docxDocumentRelsXml(imageEntries) {
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships}</Relationships>`;
 }
 
-function buildPiDocxDocumentXml(lines, settings, imageEntries) {
+function buildPiDocxDocumentXml(lines, settings, imageEntries, sellerStampEntry = null) {
   const totals = documentTotals(lines);
   const deposit = totals.totalUsd * (settings.depositRate / 100);
   const exportAgentName = settings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
@@ -1974,6 +1997,7 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
   <w:body>
     ${docxParagraph("JINHUA WUHU INTERNATIONAL TRADE CO.,LTD", { align: "center", bold: true, size: 28, after: 40 })}
     ${docxParagraph("7TH FLOOR, JINDIAN TOWER, WUHU ROAD, HARDWARE CENTRE, YONGKANG, ZHEJIANG, CHINA.", { align: "center", size: 18, after: 80 })}
+    ${docxParagraph(PI_VALIDITY_NOTE, { align: "center", italic: true, size: 18, after: 80 })}
     ${piMetaTable}
     ${docxParagraph("PROFORMA_INVOICE", { align: "center", bold: true, size: 30, before: 0, after: 180 })}
     ${partyTable}
@@ -1986,33 +2010,44 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries) {
     ${docxParagraph(`3. TERMS OF PAYMENT\n${settings.payment}`, { bold: true, after: 80 })}
     ${docxParagraph(`4. PACKING\n${settings.packing}`, { bold: true, after: 80 })}
     ${docxParagraph("5. T/T Remittance\nBeneficiary bank name: BANK OF CHINA, YONGKANG SUB BRANCH\nBeneficiary bank address: NO.28 LIZHOU MIDDLE RD YONGKANG ZHEJIANG CHINA\nBeneficiary bank Swift Code: BKCHCNBJ92H\nBeneficiary Name: JINHUA WUHU INTERNATIONAL TRADE CO., LTD.\nBeneficiary Address: 7TH FLOOR JINDIAN TOWER, WUHU ROAD, HARDWARE CENTER YONGKANG ZHEJIANG, CHINA\nBeneficiary Account No.: 380558343961", { bold: true, after: 160 })}
-    ${docxTable([docxTableRow([docxTableCell("SELLER: (STAMP)", 6900, { align: "center" }), docxTableCell("BUYER: (STAMP)", 6900, { align: "center" })])], [6900, 6900])}
+    ${docxTable([docxTableRow([
+      docxTableCell([
+        docxParagraph("SELLER: (STAMP)", { align: "center", after: 60 }),
+        docxImageParagraph(sellerStampEntry, { cx: 3300000, cy: 2190000 })
+      ], 6900, { align: "center" }),
+      docxTableCell("BUYER: (STAMP)", 6900, { align: "center" })
+    ])], [6900, 6900])}
     <w:sectPr><w:pgSz w:w="16838" w:h="23811"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>
   </w:body>
 </w:document>`;
 }
 
-function buildPiDocxBlob(lines, settings = readDocSettingsFromForm()) {
+async function buildPiDocxBlob(lines, settings = readDocSettingsFromForm()) {
   const imageEntries = [];
   const mediaFiles = [];
-  lines.forEach((line, lineIndex) => {
-    const image = dataUrlToBytes(line.imageData);
-    if (!image) return;
-    const imageIndex = imageEntries.length + 1;
-    const mediaName = `image${imageIndex}.${image.extension}`;
-    imageEntries.push({
-      lineIndex,
+  const sellerStamp = await fetchAssetBytes("seller-stamp.jpg");
+  let sellerStampEntry = null;
+  if (sellerStamp) {
+    const imageIndex = 1;
+    const mediaName = `seller-stamp.${sellerStamp.extension}`;
+    sellerStampEntry = {
       mediaName,
       relId: `rId${imageIndex}`,
-      extension: image.extension,
+      extension: sellerStamp.extension,
+      docPrId: imageIndex + 1
+    };
+    imageEntries.push({
+      mediaName,
+      relId: `rId${imageIndex}`,
+      extension: sellerStamp.extension,
       docPrId: imageIndex + 1
     });
-    mediaFiles.push({ name: `word/media/${mediaName}`, data: image.bytes });
-  });
+    mediaFiles.push({ name: `word/media/${mediaName}`, data: sellerStamp.bytes });
+  }
   const files = [
     { name: "[Content_Types].xml", data: docxContentTypesXml(imageEntries) },
     { name: "_rels/.rels", data: docxRootRelsXml() },
-    { name: "word/document.xml", data: buildPiDocxDocumentXml(lines, settings, imageEntries) },
+    { name: "word/document.xml", data: buildPiDocxDocumentXml(lines, settings, imageEntries, sellerStampEntry) },
     { name: "word/_rels/document.xml.rels", data: docxDocumentRelsXml(imageEntries) },
     ...mediaFiles
   ];
@@ -2338,11 +2373,11 @@ function buildPackingListXlsxBlob(lines, settings = readDocSettingsFromForm()) {
   return new Blob([createStoredZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-function downloadPiFile() {
+async function downloadPiFile() {
   const lines = ensureDocumentLines();
   if (!lines) return;
   const settings = readDocSettingsFromForm();
-  downloadBlobFile(`PI_${safeFilename(settings.piNo)}.docx`, buildPiDocxBlob(lines, settings));
+  downloadBlobFile(`PI_${safeFilename(settings.piNo)}.docx`, await buildPiDocxBlob(lines, settings));
 }
 
 function printPiFile() {
