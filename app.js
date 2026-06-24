@@ -2288,7 +2288,7 @@ function xlsxDrawingXml(imageEntries) {
     <xdr:pic>
       <xdr:nvPicPr><xdr:cNvPr id="${index + 2}" name="Picture ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
       <xdr:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
-      <xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+      <xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:prstDash val="solid"/></a:ln></xdr:spPr>
     </xdr:pic>
     <xdr:clientData/>
   </xdr:twoCellAnchor>`).join("");
@@ -2598,9 +2598,9 @@ function buildPiXlsxSheetXml(lines, settings, imageEntries = []) {
   </cols>
   <sheetData>${rows.join("")}</sheetData>
   <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
-  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
   <pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
   <pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>
+  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
 </worksheet>`;
 }
 
