@@ -1819,7 +1819,7 @@ function buildPiHtml(lines, settings = readDocSettingsFromForm()) {
     Beneficiary Account No.: 380558343961
   </div>
   <div class="signature">
-    <div>SELLER: (STAMP)<img class="seller-stamp" src="seller-stamp.jpg" alt="Seller stamp"></div>
+    <div>SELLER: (STAMP)<img class="seller-stamp" src="seller-stamp.png" alt="Seller stamp"></div>
     <div>BUYER: (STAMP)</div>
   </div>
 </body>
@@ -2033,7 +2033,7 @@ function buildPiDocxDocumentXml(lines, settings, imageEntries, sellerStampEntry 
 async function buildPiDocxBlob(lines, settings = readDocSettingsFromForm()) {
   const imageEntries = [];
   const mediaFiles = [];
-  const sellerStamp = await fetchAssetBytes("seller-stamp.jpg");
+  const sellerStamp = await fetchAssetBytes("seller-stamp.png");
   let sellerStampEntry = null;
   if (sellerStamp) {
     const imageIndex = 1;
@@ -2183,7 +2183,7 @@ function xlsxStylesXml() {
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="4">
     <font><sz val="10"/><name val="Arial"/></font>
-    <font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF111111"/><sz val="10"/><name val="Arial"/></font>
     <font><sz val="10"/><name val="Arial"/></font>
     <font><b/><sz val="10"/><name val="Arial"/></font>
   </fonts>
@@ -2239,12 +2239,12 @@ function xlsxPiStylesXml() {
   <fills count="8">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF3A3A3A"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F1F1"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFE1E4E8"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF6F6F6"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFF7F7F7"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFEFEFEF"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF3A3A3A"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEDEDED"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFE1E4E8"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="4">
     <border><left/><right/><top/><bottom/><diagonal/></border>
@@ -2616,7 +2616,7 @@ async function buildPiXlsxBlob(lines, settings = readDocSettingsFromForm()) {
   const imageEntries = [];
   const mediaFiles = [];
   const layout = piLayoutRows(lines);
-  const sellerStamp = await fetchAssetBytes("seller-stamp.jpg");
+  const sellerStamp = await fetchAssetBytes("seller-stamp.png");
   if (sellerStamp) {
     const mediaName = `seller-stamp.${sellerStamp.extension}`;
     imageEntries.push({
