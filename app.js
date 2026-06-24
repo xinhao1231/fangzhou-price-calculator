@@ -2227,24 +2227,24 @@ function xlsxPiStylesXml() {
   </numFmts>
   <fonts count="9">
     <font><sz val="10"/><name val="Arial"/></font>
-    <font><b/><color rgb="FF173B3F"/><sz val="16"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF111111"/><sz val="16"/><name val="Arial"/></font>
     <font><color rgb="FF444444"/><sz val="9"/><name val="Arial"/></font>
     <font><i/><color rgb="FF666666"/><sz val="9"/><name val="Arial"/></font>
-    <font><b/><color rgb="FF173B3F"/><sz val="18"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF111111"/><sz val="18"/><name val="Arial"/></font>
     <font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Arial"/></font>
     <font><sz val="10"/><name val="Arial"/></font>
     <font><b/><sz val="10"/><name val="Arial"/></font>
-    <font><b/><color rgb="FF173B3F"/><sz val="11"/><name val="Arial"/></font>
+    <font><b/><color rgb="FF111111"/><sz val="11"/><name val="Arial"/></font>
   </fonts>
   <fills count="8">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF234E52"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F6"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF3A3A3A"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F1F1"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFF3F5F6"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF3D6B8A"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF7F7F7"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEFEFEF"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF3A3A3A"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="4">
     <border><left/><right/><top/><bottom/><diagonal/></border>
@@ -2281,15 +2281,23 @@ function xlsxPiStylesXml() {
 }
 
 function xlsxDrawingXml(imageEntries) {
-  const anchors = imageEntries.map((entry, index) => `
-  <xdr:twoCellAnchor editAs="oneCell">
-    <xdr:from><xdr:col>${entry.startCol ?? 0}</xdr:col><xdr:colOff>${entry.startColOff ?? 80000}</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>${entry.startRowOff ?? 80000}</xdr:rowOff></xdr:from>
-    <xdr:to><xdr:col>${entry.endCol ?? 1}</xdr:col><xdr:colOff>${entry.endColOff ?? 80000}</xdr:colOff><xdr:row>${entry.endRow}</xdr:row><xdr:rowOff>${entry.endRowOff ?? 0}</xdr:rowOff></xdr:to>
+  const pictureXml = (entry, index) => `
     <xdr:pic>
       <xdr:nvPicPr><xdr:cNvPr id="${index + 2}" name="Picture ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
       <xdr:blipFill><a:blip r:embed="${entry.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
       <xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:prstDash val="solid"/></a:ln></xdr:spPr>
-    </xdr:pic>
+    </xdr:pic>`;
+  const anchors = imageEntries.map((entry, index) => entry.anchor === "oneCell" ? `
+  <xdr:oneCellAnchor>
+    <xdr:from><xdr:col>${entry.startCol ?? 0}</xdr:col><xdr:colOff>${entry.startColOff ?? 80000}</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>${entry.startRowOff ?? 80000}</xdr:rowOff></xdr:from>
+    <xdr:ext cx="${entry.cx || 3300000}" cy="${entry.cy || 2190000}"/>
+    ${pictureXml(entry, index)}
+    <xdr:clientData/>
+  </xdr:oneCellAnchor>` : `
+  <xdr:twoCellAnchor editAs="oneCell">
+    <xdr:from><xdr:col>${entry.startCol ?? 0}</xdr:col><xdr:colOff>${entry.startColOff ?? 80000}</xdr:colOff><xdr:row>${entry.startRow - 1}</xdr:row><xdr:rowOff>${entry.startRowOff ?? 80000}</xdr:rowOff></xdr:from>
+    <xdr:to><xdr:col>${entry.endCol ?? 1}</xdr:col><xdr:colOff>${entry.endColOff ?? 80000}</xdr:colOff><xdr:row>${entry.endRow}</xdr:row><xdr:rowOff>${entry.endRowOff ?? 0}</xdr:rowOff></xdr:to>
+    ${pictureXml(entry, index)}
     <xdr:clientData/>
   </xdr:twoCellAnchor>`).join("");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -2586,7 +2594,7 @@ function buildPiXlsxSheetXml(lines, settings, imageEntries = []) {
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>
   <dimension ref="A1:H${layout.signatureBoxEndRow}"/>
-  <sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="13" topLeftCell="A14" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews>
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>
     <col min="1" max="1" width="24" customWidth="1"/>
@@ -2612,14 +2620,17 @@ async function buildPiXlsxBlob(lines, settings = readDocSettingsFromForm()) {
   if (sellerStamp) {
     const mediaName = `seller-stamp.${sellerStamp.extension}`;
     imageEntries.push({
+      anchor: "oneCell",
       startRow: layout.signatureBoxStartRow,
       endRow: layout.signatureBoxEndRow,
       startCol: 0,
       endCol: 4,
-      startColOff: 300000,
-      startRowOff: 80000,
+      startColOff: 520000,
+      startRowOff: 120000,
       endColOff: 0,
       endRowOff: 0,
+      cx: 3000000,
+      cy: 1995000,
       mediaName,
       relId: "rId1",
       extension: sellerStamp.extension
