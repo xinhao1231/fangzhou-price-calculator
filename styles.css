@@ -377,6 +377,7 @@ h2 {
 .result-list,
 .summary-section-title,
 .mixed-fob,
+.price-text-panel,
 .quote-box,
 .data-tools {
   margin-left: 18px;
@@ -611,6 +612,142 @@ h2 {
   line-height: 1.5;
 }
 
+.price-text-panel {
+  margin-top: 16px;
+  border: 1px solid #d8e5e5;
+  border-radius: 8px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fbfefe 0%, #f4f8f7 100%);
+}
+
+.price-text-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.price-text-head .summary-section-title {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
+  margin-bottom: 3px;
+}
+
+.price-text-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.copy-price-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  border: 1px solid rgba(31, 78, 95, 0.18);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.copy-price-button:hover {
+  transform: translateY(-1px);
+  background: var(--brand-strong);
+}
+
+.price-text-name {
+  margin-top: 12px;
+}
+
+.price-text-name input {
+  min-height: 42px;
+  border-color: #d7e4e5;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.price-text-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.price-text-choice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 4px;
+  min-height: 54px;
+  border: 1px solid #d7e4e5;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.price-text-choice[data-active="true"] {
+  border-color: #799ca5;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(31, 78, 95, 0.08);
+}
+
+.price-text-choice[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.price-text-choice input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.price-text-choice span {
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.price-text-choice strong {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.price-text-output {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid #d7e4e5;
+  border-radius: 8px;
+  background: #fff;
+  color: #223239;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: none;
+  white-space: pre-line;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(23, 36, 43, 0.03);
+}
+
 .quote-box {
   min-height: 118px;
   margin-top: 16px;
@@ -813,6 +950,7 @@ h2 {
   .result-list,
   .summary-section-title,
   .mixed-fob,
+  .price-text-panel,
   .quote-box,
   .data-tools {
     margin-left: 12px;
