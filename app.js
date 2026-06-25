@@ -36,6 +36,133 @@ const PORTUGUESE_PRODUCT_NAMES = {
   "toilet-brush|small": "escova sanitária pequena"
 };
 
+const PRICE_TEXT_CRITICAL_CSS = `
+.price-text-panel {
+  margin-top: 16px !important;
+  border: 1px solid #d8e5e5 !important;
+  border-radius: 8px !important;
+  padding: 14px !important;
+  background: linear-gradient(180deg, #fbfefe 0%, #f4f8f7 100%) !important;
+}
+.price-text-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+.price-text-head .summary-section-title {
+  margin: 0 0 3px !important;
+}
+.price-text-head p {
+  margin: 0 !important;
+  color: #68777f !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+}
+.copy-price-button {
+  flex: 0 0 auto !important;
+  min-height: 34px !important;
+  border: 1px solid rgba(31, 78, 95, 0.18) !important;
+  border-radius: 8px !important;
+  padding: 7px 12px !important;
+  background: #1f4e5f !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+.price-text-name {
+  margin-top: 12px !important;
+}
+.price-text-name input {
+  width: 100% !important;
+  min-height: 42px !important;
+  border: 1px solid #d7e4e5 !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #17242b !important;
+  font: inherit !important;
+}
+.price-text-options {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+.price-text-choice {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 54px !important;
+  border: 1px solid #d7e4e5 !important;
+  border-radius: 8px !important;
+  padding: 9px 10px !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  cursor: pointer !important;
+}
+.price-text-choice[data-active="true"] {
+  border-color: #799ca5 !important;
+  background: #fff !important;
+  box-shadow: 0 8px 18px rgba(31, 78, 95, 0.08) !important;
+}
+.price-text-choice[data-active="true"]::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 9px !important;
+  right: 9px !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: #1f4e5f !important;
+}
+.price-text-choice input {
+  position: absolute !important;
+  width: 1px !important;
+  min-height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.price-text-choice span {
+  color: #153844 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  overflow-wrap: anywhere !important;
+}
+.price-text-choice strong {
+  color: #d96d4b !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+.price-text-output {
+  width: 100% !important;
+  min-height: 150px !important;
+  margin-top: 12px !important;
+  padding: 13px !important;
+  border: 1px solid #d7e4e5 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #223239 !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  resize: none !important;
+  white-space: pre-line !important;
+  outline: none !important;
+  box-shadow: inset 0 1px 0 rgba(23, 36, 43, 0.03) !important;
+}
+@media (max-width: 700px) {
+  .price-text-panel {
+    padding: 12px !important;
+  }
+  .price-text-options {
+    grid-template-columns: 1fr !important;
+  }
+}
+`;
+
 const PACKAGING_GROUP = {
   id: "packaging",
   title: "包装选择",
@@ -978,6 +1105,14 @@ function downloadBlobFile(filename, blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function injectPriceTextCriticalStyles() {
+  if (document.querySelector("#priceTextCriticalStyles")) return;
+  const style = document.createElement("style");
+  style.id = "priceTextCriticalStyles";
+  style.textContent = PRICE_TEXT_CRITICAL_CSS;
+  document.head.append(style);
+}
+
 function xmlEscape(value = "") {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1588,7 +1723,7 @@ function formatPriceTextUsd(value) {
 function priceTextIntro(productName) {
   const normalized = productName.trim().toLowerCase();
   const article = normalized.startsWith("escova") || normalized.startsWith("lixeira") ? "da" : "do";
-  return `Segue o preço de fábrica ${article} ${productName}, sem imposto e sem frete:`;
+  return `Segue abaixo o preço ${article} ${productName}:`;
 }
 
 function buildPortuguesePriceText(candidates = priceTextCandidates()) {
@@ -3149,6 +3284,7 @@ if ("caches" in window) {
   }).catch(() => {});
 }
 
+injectPriceTextCriticalStyles();
 syncUnitPrice();
 syncDocSettingsToForm();
 bindInputs();
