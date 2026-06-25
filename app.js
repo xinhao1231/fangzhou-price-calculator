@@ -1616,23 +1616,12 @@ function renderPriceTextBuilder() {
   const candidates = priceTextCandidates();
   syncPriceTextSelectedIds(candidates);
   elements.priceTextOptions.innerHTML = "";
-  Object.assign(elements.priceTextOptions.style, {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))",
-    gap: "8px",
-    marginTop: "10px"
-  });
 
   candidates.forEach((candidate) => {
     const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
     const label = document.createElement("label");
     label.className = "price-text-choice";
-    Object.assign(label.style, {
-      display: "grid",
-      gridTemplateColumns: "18px minmax(0, 1fr) auto",
-      alignItems: "center",
-      gap: "7px"
-    });
+    label.dataset.active = state.priceTextSelectedIds.has(candidate.id);
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -1643,11 +1632,12 @@ function renderPriceTextBuilder() {
       } else {
         state.priceTextSelectedIds.delete(candidate.id);
       }
+      label.dataset.active = checkbox.checked;
       renderPriceTextOutput(candidates);
     });
 
     const name = document.createElement("span");
-    name.textContent = `${candidate.label}：`;
+    name.textContent = candidate.label;
 
     const priceLabel = document.createElement("strong");
     priceLabel.textContent = Number.isFinite(price) && price > 0 ? `RMB ${formatPriceTextRmb(price)}` : "待确认";

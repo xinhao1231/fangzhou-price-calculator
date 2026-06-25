@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260626-2">
+    <link rel="stylesheet" href="styles.css?v=20260626-3">
   </head>
   <body>
     <main class="app-shell">
@@ -264,8 +264,11 @@
 
         <section class="price-text-panel" aria-label="价格文字">
           <div class="price-text-head">
-            <h3 class="summary-section-title">葡语价格文字</h3>
-            <button class="text-button" id="copyPriceText" type="button">复制</button>
+            <div>
+              <h3 class="summary-section-title">葡语价格文字</h3>
+              <p>选择规格后自动生成可复制报价</p>
+            </div>
+            <button class="copy-price-button" id="copyPriceText" type="button">复制</button>
           </div>
           <label class="field price-text-name">
             <span>产品葡语名称</span>
@@ -287,6 +290,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260626-2"></script>
+    <script src="app.js?v=20260626-3"></script>
   </body>
 </html>
