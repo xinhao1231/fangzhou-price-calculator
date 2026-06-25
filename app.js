@@ -25,6 +25,17 @@ const EXCHANGE_RATE_PROVIDERS = [
   }
 ];
 
+const PORTUGUESE_PRODUCT_NAMES = {
+  "outdoor-bin": "cesto de lixo externo",
+  "indoor-bin|stainless-pedal": "cesto de lixo inox com pedal",
+  "indoor-bin|painted": "cesto de lixo pintado com pedal",
+  "indoor-bin|bamboo-lid": "cesto de lixo com tampa de bambu",
+  "indoor-bin|square": "cesto de lixo quadrado",
+  "indoor-bin|sensor": "cesto de lixo automático",
+  "toilet-brush|large": "escova sanitária grande",
+  "toilet-brush|small": "escova sanitária pequena"
+};
+
 const PACKAGING_GROUP = {
   id: "packaging",
   title: "包装选择",
@@ -432,7 +443,9 @@ const state = {
   containerId: "40hq",
   includeFob: false,
   mixedItems: loadMixedItems(),
-  docSettings: loadDocSettings()
+  docSettings: loadDocSettings(),
+  priceTextSelectionKey: "",
+  priceTextSelectedIds: new Set()
 };
 
 const elements = {
@@ -472,6 +485,10 @@ const elements = {
   cartonQty: document.querySelector("#cartonQty"),
   unitWeight: document.querySelector("#unitWeight"),
   quoteText: document.querySelector("#quoteText"),
+  priceTextProductName: document.querySelector("#priceTextProductName"),
+  priceTextOptions: document.querySelector("#priceTextOptions"),
+  priceTextOutput: document.querySelector("#priceTextOutput"),
+  copyPriceText: document.querySelector("#copyPriceText"),
   saveStatus: document.querySelector("#saveStatus"),
   savePrice: document.querySelector("#savePrice"),
   copyQuote: document.querySelector("#copyQuote"),
@@ -676,18 +693,26 @@ function selectDefaultConfigs(option) {
   });
 }
 
-function isConfigGroupVisible(group) {
+function isConfigGroupVisibleForSelections(group, selections = state.configSelections) {
   if (!group.showWhen) return true;
   return Object.entries(group.showWhen).every(([groupId, expected]) => {
     const expectedValues = Array.isArray(expected) ? expected : [expected];
-    return expectedValues.includes(state.configSelections[groupId]);
+    return expectedValues.includes(selections[groupId]);
   });
 }
 
-function visibleConfigGroups(option = currentOption()) {
+function isConfigGroupVisible(group) {
+  return isConfigGroupVisibleForSelections(group);
+}
+
+function visibleConfigGroupsForSelections(option = currentOption(), selections = state.configSelections, product = currentProduct()) {
   const groups = Array.isArray(option.configGroups) ? option.configGroups : [];
-  if (currentProduct().id === "outdoor-bin") return groups.filter(isConfigGroupVisible);
-  return [...groups, PACKAGING_GROUP].filter(isConfigGroupVisible);
+  if (product.id === "outdoor-bin") return groups.filter((group) => isConfigGroupVisibleForSelections(group, selections));
+  return [...groups, PACKAGING_GROUP].filter((group) => isConfigGroupVisibleForSelections(group, selections));
+}
+
+function visibleConfigGroups(option = currentOption()) {
+  return visibleConfigGroupsForSelections(option);
 }
 
 function selectedConfigItems() {
@@ -700,17 +725,25 @@ function selectedConfigItems() {
 
 function configPriceKey() {
   const option = currentOption();
-  return visibleConfigGroups(option)
+  return configPriceKeyForSelections(option, state.configSelections);
+}
+
+function configPriceKeyForSelections(option, selections) {
+  return visibleConfigGroupsForSelections(option, selections)
     .filter((group) => group.affectsPrice !== false)
-    .map((group) => `${group.id}:${state.configSelections[group.id] || group.items[0].id}`)
+    .map((group) => `${group.id}:${selections[group.id] || group.items[0].id}`)
     .join("|");
 }
 
 function logisticsPriceKey() {
   const option = currentOption();
-  return visibleConfigGroups(option)
+  return logisticsPriceKeyForSelections(option, state.configSelections);
+}
+
+function logisticsPriceKeyForSelections(option, selections) {
+  return visibleConfigGroupsForSelections(option, selections)
     .filter((group) => group.affectsLogistics !== false)
-    .map((group) => `${group.id}:${state.configSelections[group.id] || group.items[0].id}`)
+    .map((group) => `${group.id}:${selections[group.id] || group.items[0].id}`)
     .join("|");
 }
 
@@ -722,6 +755,39 @@ function currentLogistics() {
 function directSavedPrice(option = currentOption(), key = configPriceKey()) {
   if (!option.prices || !Object.prototype.hasOwnProperty.call(option.prices, key)) return null;
   return option.prices[key];
+}
+
+function configPriceKeyWithOverrides(option, selections, overrides = {}) {
+  const nextSelections = { ...selections, ...overrides };
+  return configPriceKeyForSelections(option, nextSelections);
+}
+
+function savedPriceForSelections(option = currentOption(), selections = state.configSelections) {
+  if (visibleConfigGroupsForSelections(option, selections).length > 0) {
+    const savedPrice = directSavedPrice(option, configPriceKeyForSelections(option, selections));
+    if (savedPrice !== null) return savedPrice;
+
+    if (option.id === "bamboo-lid" && selections.pattern === "embossed" && selections.softClose === "soft-close") {
+      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain", softClose: "standard" });
+      const basePrice = directSavedPrice(option, baseKey);
+      if (basePrice !== null) return basePrice + 2;
+    }
+
+    if (selections.softClose === "soft-close") {
+      const baseKey = configPriceKeyWithOverrides(option, selections, { softClose: "standard" });
+      const basePrice = directSavedPrice(option, baseKey);
+      if (basePrice !== null) return basePrice + 1;
+    }
+
+    if (option.id === "bamboo-lid" && selections.pattern === "embossed") {
+      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain" });
+      const basePrice = directSavedPrice(option, baseKey);
+      if (basePrice !== null) return basePrice + 1;
+    }
+
+    return option.price || 0;
+  }
+  return option.price || 0;
 }
 
 function softCloseBaseKey() {
@@ -809,26 +875,7 @@ function fobInfo(logisticsInfo) {
 }
 
 function currentSavedPrice() {
-  const option = currentOption();
-  if (visibleConfigGroups(option).length > 0) {
-    const savedPrice = directSavedPrice(option);
-    if (savedPrice !== null) return savedPrice;
-
-    const embossedStandardBaseKey = bambooEmbossedStandardBaseKey();
-    const embossedStandardBasePrice = embossedStandardBaseKey ? directSavedPrice(option, embossedStandardBaseKey) : null;
-    if (embossedStandardBasePrice !== null) return embossedStandardBasePrice + 2;
-
-    const baseKey = softCloseBaseKey();
-    const basePrice = baseKey ? directSavedPrice(option, baseKey) : null;
-    if (basePrice !== null) return basePrice + 1;
-
-    const embossedBaseKey = bambooEmbossedBaseKey();
-    const embossedBasePrice = embossedBaseKey ? directSavedPrice(option, embossedBaseKey) : null;
-    if (embossedBasePrice !== null) return embossedBasePrice + 1;
-
-    return option.price || 0;
-  }
-  return option.price || 0;
+  return savedPriceForSelections(currentOption(), state.configSelections);
 }
 
 function saveCurrentPrice(price) {
@@ -1442,6 +1489,162 @@ function currentSelectionLabel() {
   const option = currentOption();
   const configItems = selectedConfigItems();
   return [product.name, option.label, ...configItems.map((item) => item.label)].join(" · ");
+}
+
+function priceTextCurrentLineLabel() {
+  const option = currentOption();
+  const configItems = visibleConfigGroupsForSelections(option, state.configSelections)
+    .filter((group) => group.affectsPrice !== false)
+    .map((group) => {
+      const selectedId = state.configSelections[group.id] || group.items[0].id;
+      return group.items.find((item) => item.id === selectedId) || group.items[0];
+    });
+  return [option.label, ...configItems.map((item) => item.label)].join(" · ");
+}
+
+function defaultPortugueseProductName() {
+  const product = currentProduct();
+  const option = currentOption();
+  return PORTUGUESE_PRODUCT_NAMES[`${product.id}|${option.id}`] || PORTUGUESE_PRODUCT_NAMES[product.id] || option.label;
+}
+
+function syncPriceTextProductName() {
+  const key = `${state.productId}|${state.optionId}`;
+  if (elements.priceTextProductName.dataset.selectionKey === key) return;
+  elements.priceTextProductName.dataset.selectionKey = key;
+  elements.priceTextProductName.value = defaultPortugueseProductName();
+}
+
+function priceTextCandidates() {
+  const product = currentProduct();
+  const option = currentOption();
+  const groups = visibleConfigGroupsForSelections(option, state.configSelections, product);
+  const sizeGroup = groups.find((group) => group.id === "size");
+
+  if (sizeGroup) {
+    return sizeGroup.items.map((item) => ({
+      id: `size:${item.id}`,
+      label: item.label,
+      option,
+      selections: { ...state.configSelections, size: item.id }
+    }));
+  }
+
+  const simpleProductOptions = product.options.length > 1 && product.options.every((item) => !item.configGroups?.length);
+  if (simpleProductOptions) {
+    return product.options.map((item) => ({
+      id: `option:${item.id}`,
+      label: item.label,
+      option: item,
+      selections: {}
+    }));
+  }
+
+  return [{
+    id: "current",
+    label: priceTextCurrentLineLabel(),
+    option,
+    selections: { ...state.configSelections }
+  }];
+}
+
+function priceTextContextKey(candidates) {
+  const option = currentOption();
+  const hasSizeCandidates = candidates.some((candidate) => candidate.id.startsWith("size:"));
+  const configKey = visibleConfigGroupsForSelections(option, state.configSelections)
+    .filter((group) => group.affectsPrice !== false)
+    .filter((group) => !(hasSizeCandidates && group.id === "size"))
+    .map((group) => `${group.id}:${state.configSelections[group.id] || group.items[0].id}`)
+    .join("|");
+  return [state.productId, state.optionId, configKey, candidates.map((candidate) => candidate.id).join(",")].join("::");
+}
+
+function syncPriceTextSelectedIds(candidates) {
+  const contextKey = priceTextContextKey(candidates);
+  if (state.priceTextSelectionKey !== contextKey) {
+    state.priceTextSelectionKey = contextKey;
+    state.priceTextSelectedIds = new Set(candidates.map((candidate) => candidate.id));
+    return;
+  }
+
+  const availableIds = new Set(candidates.map((candidate) => candidate.id));
+  state.priceTextSelectedIds = new Set([...state.priceTextSelectedIds].filter((id) => availableIds.has(id)));
+}
+
+function formatPriceTextRmb(value) {
+  return Number(value).toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatPriceTextUsd(value) {
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function priceTextIntro(productName) {
+  const normalized = productName.trim().toLowerCase();
+  const article = normalized.startsWith("escova") || normalized.startsWith("lixeira") ? "da" : "do";
+  return `Segue o preço de fábrica ${article} ${productName}, sem imposto e sem frete:`;
+}
+
+function buildPortuguesePriceText(candidates = priceTextCandidates()) {
+  const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, 7.2));
+  const selectedCandidates = candidates.filter((candidate) => state.priceTextSelectedIds.has(candidate.id));
+  const productName = elements.priceTextProductName.value.trim() || defaultPortugueseProductName();
+
+  if (!selectedCandidates.length) return "请选择需要复制的规格。";
+
+  const lines = selectedCandidates.map((candidate) => {
+    const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
+    if (!Number.isFinite(price) || price <= 0) return `${candidate.label}: preço a confirmar`;
+    return `${candidate.label}: RMB ${formatPriceTextRmb(price)} / unidade ≈ USD ${formatPriceTextUsd(price / exchangeRate)} / unidade`;
+  });
+
+  return [priceTextIntro(productName), ...lines].join("\n");
+}
+
+function renderPriceTextOutput(candidates = priceTextCandidates()) {
+  elements.priceTextOutput.textContent = buildPortuguesePriceText(candidates);
+}
+
+function renderPriceTextBuilder() {
+  syncPriceTextProductName();
+  const candidates = priceTextCandidates();
+  syncPriceTextSelectedIds(candidates);
+  elements.priceTextOptions.innerHTML = "";
+
+  candidates.forEach((candidate) => {
+    const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
+    const label = document.createElement("label");
+    label.className = "price-text-choice";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.priceTextSelectedIds.has(candidate.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        state.priceTextSelectedIds.add(candidate.id);
+      } else {
+        state.priceTextSelectedIds.delete(candidate.id);
+      }
+      renderPriceTextOutput(candidates);
+    });
+
+    const name = document.createElement("span");
+    name.textContent = candidate.label;
+
+    const priceLabel = document.createElement("strong");
+    priceLabel.textContent = Number.isFinite(price) && price > 0 ? `RMB ${formatPriceTextRmb(price)}` : "待确认";
+
+    label.append(checkbox, name, priceLabel);
+    elements.priceTextOptions.append(label);
+  });
+
+  renderPriceTextOutput(candidates);
 }
 
 function addCurrentToMixed() {
@@ -2771,6 +2974,7 @@ function renderSummary() {
     `混装货柜占用：${Math.round(mixed.usage * 100)}%`,
     `合计：${formatCny(result.totalCny)}（约 ${formatUsd(result.totalUsd)}）`
   ].join("\n");
+  renderPriceTextBuilder();
   renderMixedFob();
 }
 
@@ -2860,6 +3064,19 @@ function bindInputs() {
     try {
       await navigator.clipboard.writeText(elements.quoteText.textContent);
       flashSaved("报价已复制");
+    } catch {
+      flashSaved("复制失败");
+    }
+  });
+
+  elements.priceTextProductName.addEventListener("input", () => {
+    renderPriceTextOutput();
+  });
+
+  elements.copyPriceText.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(elements.priceTextOutput.textContent);
+      flashSaved("葡语报价已复制");
     } catch {
       flashSaved("复制失败");
     }

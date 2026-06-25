@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260625-4">
+    <link rel="stylesheet" href="styles.css?v=20260626-1">
   </head>
   <body>
     <main class="app-shell">
@@ -94,7 +94,7 @@
           <div class="actions">
             <button class="primary-button" id="savePrice" type="button">保存当前单价</button>
             <button class="secondary-button" id="addMixedItem" type="button">加入混装</button>
-            <button class="secondary-button" id="copyQuote" type="button">复制报价</button>
+            <button class="secondary-button" id="copyQuote" type="button">复制中文明细</button>
           </div>
         </section>
 
@@ -262,6 +262,19 @@
           <p class="mixed-empty" id="mixedEmpty">把产品加入混装后，这里会按总CBM分摊FOB费用。</p>
         </section>
 
+        <section class="price-text-panel" aria-label="价格文字">
+          <div class="price-text-head">
+            <h3 class="summary-section-title">葡语价格文字</h3>
+            <button class="text-button" id="copyPriceText" type="button">复制</button>
+          </div>
+          <label class="field price-text-name">
+            <span>产品葡语名称</span>
+            <input id="priceTextProductName" type="text">
+          </label>
+          <div class="price-text-options" id="priceTextOptions"></div>
+          <div class="price-text-output" id="priceTextOutput"></div>
+        </section>
+
         <div class="quote-box" id="quoteText"></div>
 
         <div class="data-tools">
@@ -274,6 +287,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260625-4"></script>
+    <script src="app.js?v=20260626-1"></script>
   </body>
 </html>
