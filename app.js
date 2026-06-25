@@ -1608,7 +1608,7 @@ function buildPortuguesePriceText(candidates = priceTextCandidates()) {
 }
 
 function renderPriceTextOutput(candidates = priceTextCandidates()) {
-  elements.priceTextOutput.textContent = buildPortuguesePriceText(candidates);
+  elements.priceTextOutput.value = buildPortuguesePriceText(candidates);
 }
 
 function renderPriceTextBuilder() {
@@ -1616,11 +1616,23 @@ function renderPriceTextBuilder() {
   const candidates = priceTextCandidates();
   syncPriceTextSelectedIds(candidates);
   elements.priceTextOptions.innerHTML = "";
+  Object.assign(elements.priceTextOptions.style, {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))",
+    gap: "8px",
+    marginTop: "10px"
+  });
 
   candidates.forEach((candidate) => {
     const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
     const label = document.createElement("label");
     label.className = "price-text-choice";
+    Object.assign(label.style, {
+      display: "grid",
+      gridTemplateColumns: "18px minmax(0, 1fr) auto",
+      alignItems: "center",
+      gap: "7px"
+    });
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -1635,7 +1647,7 @@ function renderPriceTextBuilder() {
     });
 
     const name = document.createElement("span");
-    name.textContent = candidate.label;
+    name.textContent = `${candidate.label}：`;
 
     const priceLabel = document.createElement("strong");
     priceLabel.textContent = Number.isFinite(price) && price > 0 ? `RMB ${formatPriceTextRmb(price)}` : "待确认";
@@ -3075,7 +3087,7 @@ function bindInputs() {
 
   elements.copyPriceText.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(elements.priceTextOutput.textContent);
+      await navigator.clipboard.writeText(elements.priceTextOutput.value);
       flashSaved("葡语报价已复制");
     } catch {
       flashSaved("复制失败");
