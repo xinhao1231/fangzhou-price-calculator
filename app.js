@@ -632,6 +632,7 @@ const elements = {
   docExportAgent: document.querySelector("#docExportAgent"),
   docPort: document.querySelector("#docPort"),
   docDepositRate: document.querySelector("#docDepositRate"),
+  docFobMode: document.querySelector("#docFobMode"),
   docPayment: document.querySelector("#docPayment"),
   docShipment: document.querySelector("#docShipment"),
   docPacking: document.querySelector("#docPacking"),
@@ -707,6 +708,7 @@ function defaultDocSettings() {
     exportAgent: "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD",
     port: "Ningbo",
     depositRate: 30,
+    fobMode: "per-product",
     payment: "30% T/T as deposit, balance shall be paid before shipment",
     shipment: "To be effected by the buyer",
     packing: "Packing: 1/pc poly bag; 5 layers color reinforced inner box; 5 layers master carton."
@@ -994,11 +996,14 @@ function packagingCostPerUnit(quantity) {
   return packagingCostById(selectedPackagingId(), quantity, currentPackagingSize());
 }
 
-function fobInfo(logisticsInfo) {
+function fobInfoForLogistics(logisticsInfo, container = CONTAINERS[state.containerId] || CONTAINERS["40hq"]) {
   if (!logisticsInfo?.cbm || !logisticsInfo?.cartonQty) return null;
-  const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
   const units = (container.volume / logisticsInfo.cbm) * logisticsInfo.cartonQty;
   return { container, units, cost: container.price / units };
+}
+
+function fobInfo(logisticsInfo) {
+  return fobInfoForLogistics(logisticsInfo);
 }
 
 function currentSavedPrice() {
@@ -1351,6 +1356,7 @@ function syncDocSettingsToForm() {
   elements.docExportAgent.value = state.docSettings.exportAgent || "JINHUA WUHU INTERNATIONAL TRADE CO.,LTD";
   elements.docPort.value = state.docSettings.port || "Ningbo";
   elements.docDepositRate.value = state.docSettings.depositRate ?? 30;
+  if (elements.docFobMode) elements.docFobMode.value = state.docSettings.fobMode || "per-product";
   elements.docPayment.value = state.docSettings.payment || "";
   elements.docShipment.value = state.docSettings.shipment || "";
   elements.docPacking.value = state.docSettings.packing || "";
@@ -1368,6 +1374,7 @@ function readDocSettingsFromForm() {
     exportAgent: elements.docExportAgent.value.trim(),
     port: elements.docPort.value.trim() || "Ningbo",
     depositRate: Math.max(0, Math.min(100, numberFromInput(elements.docDepositRate, 30))),
+    fobMode: elements.docFobMode?.value || "per-product",
     payment: elements.docPayment.value.trim(),
     shipment: elements.docShipment.value.trim(),
     packing: elements.docPacking.value.trim()
@@ -1979,7 +1986,10 @@ function renderMixedFob() {
 
 function documentLines() {
   const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, 7.2));
-  return calculateMixedFob().lines.map((line, index) => {
+  const settings = readDocSettingsFromForm();
+  const usePerProductFob = settings.fobMode !== "mixed-share";
+  const mixed = calculateMixedFob();
+  return mixed.lines.map((line, index) => {
     const dims = parseCartonSpec(line.logistics?.cartonSpec);
     const cartonQty = Number(line.logistics?.cartonQty) || 0;
     const cartonCbm = Number(line.logistics?.cbm) || 0;
@@ -1987,7 +1997,9 @@ function documentLines() {
     const cartonCount = cartonQty ? Math.ceil(orderQty / cartonQty) : 0;
     const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
     const containerCapacity = cartonCbm && cartonQty ? (container.volume / cartonCbm) * cartonQty : 0;
-    const unitUsd = line.fobUnitPrice / exchangeRate;
+    const perProductFob = fobInfoForLogistics(line.logistics, container);
+    const documentUnitRmb = usePerProductFob ? line.baseUnitCost + (perProductFob?.cost || 0) : line.fobUnitPrice;
+    const unitUsd = documentUnitRmb / exchangeRate;
     const totalUsd = unitUsd * orderQty;
     const unitWeightKg = parseWeightKg(line.logistics?.unitWeight);
     const cartonWeightKg = unitWeightKg === "" || !cartonQty ? "" : unitWeightKg * cartonQty;
@@ -2016,10 +2028,11 @@ function documentLines() {
       productUnitRmb: Number(line.unitPrice || 0),
       packagingCost: line.packagingCost,
       baseUnitRmb: line.baseUnitCost,
-      unitRmb: line.fobUnitPrice,
+      unitRmb: documentUnitRmb,
       unitUsd,
       totalUsd,
-      nested: line.nested
+      nested: line.nested,
+      fobMode: settings.fobMode || "per-product"
     };
   });
 }
@@ -3173,10 +3186,11 @@ function bindInputs() {
     elements.docExportAgent,
     elements.docPort,
     elements.docDepositRate,
+    elements.docFobMode,
     elements.docPayment,
     elements.docShipment,
     elements.docPacking
-  ].forEach((input) => {
+  ].filter(Boolean).forEach((input) => {
     input.addEventListener("input", readDocSettingsFromForm);
   });
 

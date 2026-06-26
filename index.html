@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260626-4">
+    <link rel="stylesheet" href="styles.css?v=20260626-6">
   </head>
   <body>
     <main class="app-shell">
@@ -146,6 +146,13 @@
             <label class="field">
               <span>定金比例</span>
               <input id="docDepositRate" inputmode="decimal" min="0" max="100" step="1" type="number">
+            </label>
+            <label class="field">
+              <span>单据FOB模式</span>
+              <select id="docFobMode">
+                <option value="per-product">拼柜模式：显示单品FOB</option>
+                <option value="mixed-share">整柜分摊：按CBM分摊</option>
+              </select>
             </label>
             <label class="field wide-field">
               <span>付款方式</span>
@@ -290,6 +297,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260626-4"></script>
+    <script src="app.js?v=20260626-6"></script>
   </body>
 </html>
