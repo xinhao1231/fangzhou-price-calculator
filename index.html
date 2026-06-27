@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260627-1">
+    <link rel="stylesheet" href="styles.css?v=20260627-3">
   </head>
   <body>
     <main class="app-shell">
@@ -86,7 +86,7 @@
               <span>FOB港口</span>
               <select id="freightPort">
                 <option value="ningbo" selected>宁波港</option>
-                <option value="suzhou">苏州港（40HQ ¥8500）</option>
+                <option value="suzhou">苏州港（40HQ ¥10000）</option>
               </select>
             </label>
             <label class="field check-field">
@@ -279,13 +279,28 @@
         <section class="price-text-panel" aria-label="价格文字">
           <div class="price-text-head">
             <div>
-              <h3 class="summary-section-title">葡语价格文字</h3>
-              <p>选择规格后自动生成可复制报价</p>
+              <h3 class="summary-section-title">客户报价文字</h3>
+              <p>选择语言、规格和是否计入FOB</p>
             </div>
             <button class="copy-price-button" id="copyPriceText" type="button">复制</button>
           </div>
+          <div class="price-text-tools">
+            <label class="field">
+              <span>语言</span>
+              <select id="priceTextLanguage">
+                <option value="pt" selected>Português</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="zh">中文</option>
+              </select>
+            </label>
+            <label class="price-text-toggle">
+              <input id="priceTextIncludeFob" type="checkbox">
+              <span>计入FOB单价</span>
+            </label>
+          </div>
           <label class="field price-text-name">
-            <span>产品葡语名称</span>
+            <span>产品名称</span>
             <input id="priceTextProductName" type="text">
           </label>
           <div class="price-text-options" id="priceTextOptions"></div>
@@ -304,6 +319,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260627-1"></script>
+    <script src="app.js?v=20260627-3"></script>
   </body>
 </html>

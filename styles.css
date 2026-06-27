@@ -664,10 +664,44 @@ h2 {
   margin-top: 12px;
 }
 
+.price-text-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, auto);
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .price-text-name input {
   min-height: 42px;
   border-color: #d7e4e5;
   background: rgba(255, 255, 255, 0.92);
+}
+
+.price-text-tools select {
+  min-height: 42px;
+  border-color: #d7e4e5;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.price-text-toggle {
+  align-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #d7e4e5;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--brand-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.price-text-toggle input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: var(--brand);
 }
 
 .price-text-options {
@@ -987,6 +1021,10 @@ h2 {
   .mixed-stats,
   .mixed-line-stats {
     gap: 6px;
+  }
+
+  .price-text-tools {
+    grid-template-columns: 1fr;
   }
 
   .mixed-stats div,

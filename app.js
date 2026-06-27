@@ -19,7 +19,7 @@ const FREIGHT_PORTS = {
   suzhou: {
     label: "苏州港",
     piPort: "Suzhou",
-    prices: { "40hq": 8500 },
+    prices: { "40hq": 10000 },
     forceContainer: "40hq"
   }
 };
@@ -39,15 +39,71 @@ const EXCHANGE_RATE_PROVIDERS = [
   }
 ];
 
-const PORTUGUESE_PRODUCT_NAMES = {
-  "outdoor-bin": "cesto de lixo externo",
-  "indoor-bin|stainless-pedal": "cesto de lixo inox com pedal",
-  "indoor-bin|painted": "cesto de lixo pintado com pedal",
-  "indoor-bin|bamboo-lid": "cesto de lixo com tampa de bambu",
-  "indoor-bin|square": "cesto de lixo quadrado",
-  "indoor-bin|sensor": "cesto de lixo automático",
-  "toilet-brush|large": "escova sanitária grande",
-  "toilet-brush|small": "escova sanitária pequena"
+const PRICE_TEXT_LANGUAGES = {
+  pt: {
+    label: "Português",
+    names: {
+      "outdoor-bin": "cesto de lixo externo",
+      "indoor-bin|stainless-pedal": "cesto de lixo inox com pedal",
+      "indoor-bin|painted": "cesto de lixo pintado com pedal",
+      "indoor-bin|bamboo-lid": "cesto de lixo com tampa de bambu",
+      "indoor-bin|square": "cesto de lixo quadrado",
+      "indoor-bin|sensor": "cesto de lixo automático",
+      "toilet-brush|large": "escova sanitária grande",
+      "toilet-brush|small": "escova sanitária pequena"
+    },
+    intro: (name, includeFob) => `Segue abaixo o preço ${includeFob ? "FOB " : ""}de ${name}:`,
+    pending: "preço a confirmar",
+    unit: "unidade"
+  },
+  en: {
+    label: "English",
+    names: {
+      "outdoor-bin": "outdoor trash bin",
+      "indoor-bin|stainless-pedal": "stainless steel pedal trash can",
+      "indoor-bin|painted": "painted pedal trash can",
+      "indoor-bin|bamboo-lid": "bamboo lid trash can",
+      "indoor-bin|square": "square trash can",
+      "indoor-bin|sensor": "sensor trash can",
+      "toilet-brush|large": "large toilet brush",
+      "toilet-brush|small": "small toilet brush"
+    },
+    intro: (name, includeFob) => `Below is the ${includeFob ? "FOB price" : "price"} for ${name}:`,
+    pending: "price to be confirmed",
+    unit: "unit"
+  },
+  es: {
+    label: "Español",
+    names: {
+      "outdoor-bin": "cubo de basura exterior",
+      "indoor-bin|stainless-pedal": "cubo de basura de acero inoxidable con pedal",
+      "indoor-bin|painted": "cubo de basura pintado con pedal",
+      "indoor-bin|bamboo-lid": "cubo de basura con tapa de bambú",
+      "indoor-bin|square": "cubo de basura cuadrado",
+      "indoor-bin|sensor": "cubo de basura con sensor",
+      "toilet-brush|large": "escobilla de baño grande",
+      "toilet-brush|small": "escobilla de baño pequeña"
+    },
+    intro: (name, includeFob) => `A continuación se muestra el precio ${includeFob ? "FOB " : ""}de ${name}:`,
+    pending: "precio a confirmar",
+    unit: "unidad"
+  },
+  zh: {
+    label: "中文",
+    names: {
+      "outdoor-bin": "户外垃圾桶",
+      "indoor-bin|stainless-pedal": "不锈钢脚踏垃圾桶",
+      "indoor-bin|painted": "喷漆垃圾桶",
+      "indoor-bin|bamboo-lid": "竹盖垃圾桶",
+      "indoor-bin|square": "方形垃圾桶",
+      "indoor-bin|sensor": "感应垃圾桶",
+      "toilet-brush|large": "大号马桶刷",
+      "toilet-brush|small": "小号马桶刷"
+    },
+    intro: (name, includeFob) => `以下是${name}的${includeFob ? "FOB价格" : "价格"}：`,
+    pending: "价格待确认",
+    unit: "个"
+  }
 };
 
 const PRICE_TEXT_CRITICAL_CSS = `
@@ -88,6 +144,12 @@ const PRICE_TEXT_CRITICAL_CSS = `
 .price-text-name {
   margin-top: 12px !important;
 }
+.price-text-tools {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, auto) !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
 .price-text-name input {
   width: 100% !important;
   min-height: 42px !important;
@@ -97,6 +159,35 @@ const PRICE_TEXT_CRITICAL_CSS = `
   background: rgba(255, 255, 255, 0.92) !important;
   color: #17242b !important;
   font: inherit !important;
+}
+.price-text-tools select {
+  width: 100% !important;
+  min-height: 42px !important;
+  border: 1px solid #d7e4e5 !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #17242b !important;
+  font: inherit !important;
+}
+.price-text-toggle {
+  align-self: end !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 42px !important;
+  border: 1px solid #d7e4e5 !important;
+  border-radius: 8px !important;
+  padding: 9px 10px !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  color: #153844 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+}
+.price-text-toggle input {
+  width: 16px !important;
+  min-height: 16px !important;
+  accent-color: #1f4e5f !important;
 }
 .price-text-options {
   display: grid !important;
@@ -171,6 +262,7 @@ const PRICE_TEXT_CRITICAL_CSS = `
   .price-text-panel {
     padding: 12px !important;
   }
+  .price-text-tools,
   .price-text-options {
     grid-template-columns: 1fr !important;
   }
@@ -629,6 +721,8 @@ const elements = {
   unitWeight: document.querySelector("#unitWeight"),
   quoteText: document.querySelector("#quoteText"),
   priceTextProductName: document.querySelector("#priceTextProductName"),
+  priceTextLanguage: document.querySelector("#priceTextLanguage"),
+  priceTextIncludeFob: document.querySelector("#priceTextIncludeFob"),
   priceTextOptions: document.querySelector("#priceTextOptions"),
   priceTextOutput: document.querySelector("#priceTextOutput"),
   copyPriceText: document.querySelector("#copyPriceText"),
@@ -930,7 +1024,11 @@ function logisticsPriceKeyForSelections(option, selections) {
 
 function currentLogistics() {
   const option = currentOption();
-  return option.logisticsByKey?.[logisticsPriceKey()] || option.logistics || null;
+  return logisticsForSelections(option, state.configSelections);
+}
+
+function logisticsForSelections(option, selections) {
+  return option.logisticsByKey?.[logisticsPriceKeyForSelections(option, selections)] || option.logistics || null;
 }
 
 function directSavedPrice(option = currentOption(), key = configPriceKey()) {
@@ -1696,17 +1794,26 @@ function priceTextCurrentLineLabel() {
   return [option.label, ...configItems.map((item) => item.label)].join(" · ");
 }
 
-function defaultPortugueseProductName() {
+function currentPriceTextLanguageId() {
+  return elements.priceTextLanguage?.value || "pt";
+}
+
+function currentPriceTextLanguage() {
+  return PRICE_TEXT_LANGUAGES[currentPriceTextLanguageId()] || PRICE_TEXT_LANGUAGES.pt;
+}
+
+function defaultPriceTextProductName(languageId = currentPriceTextLanguageId()) {
   const product = currentProduct();
   const option = currentOption();
-  return PORTUGUESE_PRODUCT_NAMES[`${product.id}|${option.id}`] || PORTUGUESE_PRODUCT_NAMES[product.id] || option.label;
+  const names = PRICE_TEXT_LANGUAGES[languageId]?.names || PRICE_TEXT_LANGUAGES.pt.names;
+  return names[`${product.id}|${option.id}`] || names[product.id] || option.label;
 }
 
 function syncPriceTextProductName() {
-  const key = `${state.productId}|${state.optionId}`;
+  const key = `${state.productId}|${state.optionId}|${currentPriceTextLanguageId()}`;
   if (elements.priceTextProductName.dataset.selectionKey === key) return;
   elements.priceTextProductName.dataset.selectionKey = key;
-  elements.priceTextProductName.value = defaultPortugueseProductName();
+  elements.priceTextProductName.value = defaultPriceTextProductName();
 }
 
 function priceTextCandidates() {
@@ -1765,8 +1872,9 @@ function syncPriceTextSelectedIds(candidates) {
   state.priceTextSelectedIds = new Set([...state.priceTextSelectedIds].filter((id) => availableIds.has(id)));
 }
 
-function formatPriceTextRmb(value) {
-  return Number(value).toLocaleString("pt-BR", {
+function formatPriceTextRmb(value, languageId = currentPriceTextLanguageId()) {
+  const locale = ["pt", "es"].includes(languageId) ? "pt-BR" : "en-US";
+  return Number(value).toLocaleString(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -1779,30 +1887,47 @@ function formatPriceTextUsd(value) {
   });
 }
 
-function priceTextIntro(productName) {
-  const normalized = productName.trim().toLowerCase();
-  const article = normalized.startsWith("escova") || normalized.startsWith("lixeira") ? "da" : "do";
-  return `Segue abaixo o preço ${article} ${productName}:`;
+function priceTextPackagingSize(candidate) {
+  const product = currentProduct();
+  if (product.id === "indoor-bin" && candidate.option.id === "square") return "5l";
+  if (product.id === "indoor-bin" && candidate.selections.size) return candidate.selections.size;
+  return null;
 }
 
-function buildPortuguesePriceText(candidates = priceTextCandidates()) {
+function priceTextUnitPrice(candidate, includeFob) {
+  const productPrice = Number(savedPriceForSelections(candidate.option, candidate.selections));
+  if (!Number.isFinite(productPrice) || productPrice <= 0) return null;
+  if (!includeFob) return productPrice;
+
+  const quantity = Math.max(1, Math.round(numberFromInput(elements.quantity, 1)));
+  const packagingId = candidate.selections.packaging || selectedPackagingId();
+  const packagingCost = packagingCostById(packagingId, quantity, priceTextPackagingSize(candidate));
+  const logisticsInfo = logisticsForSelections(candidate.option, candidate.selections);
+  const fobCost = fobInfoForLogistics(logisticsInfo)?.cost || 0;
+  return productPrice + packagingCost + fobCost;
+}
+
+function buildPriceText(candidates = priceTextCandidates()) {
+  const languageId = currentPriceTextLanguageId();
+  const language = currentPriceTextLanguage();
+  const includeFob = Boolean(elements.priceTextIncludeFob?.checked);
   const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, 7.2));
   const selectedCandidates = candidates.filter((candidate) => state.priceTextSelectedIds.has(candidate.id));
-  const productName = elements.priceTextProductName.value.trim() || defaultPortugueseProductName();
+  const productName = elements.priceTextProductName.value.trim() || defaultPriceTextProductName(languageId);
 
   if (!selectedCandidates.length) return "请选择需要复制的规格。";
 
   const lines = selectedCandidates.map((candidate) => {
-    const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
-    if (!Number.isFinite(price) || price <= 0) return `${candidate.label}: preço a confirmar`;
-    return `${candidate.label}: RMB ${formatPriceTextRmb(price)} / unidade ≈ USD ${formatPriceTextUsd(price / exchangeRate)} / unidade`;
+    const price = priceTextUnitPrice(candidate, includeFob);
+    if (price === null) return `${candidate.label}: ${language.pending}`;
+    return `${candidate.label}: RMB ${formatPriceTextRmb(price, languageId)} / ${language.unit} ≈ USD ${formatPriceTextUsd(price / exchangeRate)} / ${language.unit}`;
   });
 
-  return [priceTextIntro(productName), ...lines].join("\n");
+  return [language.intro(productName, includeFob), ...lines].join("\n");
 }
 
 function renderPriceTextOutput(candidates = priceTextCandidates()) {
-  elements.priceTextOutput.value = buildPortuguesePriceText(candidates);
+  elements.priceTextOutput.value = buildPriceText(candidates);
 }
 
 function renderPriceTextBuilder() {
@@ -1810,9 +1935,11 @@ function renderPriceTextBuilder() {
   const candidates = priceTextCandidates();
   syncPriceTextSelectedIds(candidates);
   elements.priceTextOptions.innerHTML = "";
+  const includeFob = Boolean(elements.priceTextIncludeFob?.checked);
+  const languageId = currentPriceTextLanguageId();
 
   candidates.forEach((candidate) => {
-    const price = Number(savedPriceForSelections(candidate.option, candidate.selections));
+    const price = priceTextUnitPrice(candidate, includeFob);
     const label = document.createElement("label");
     label.className = "price-text-choice";
     label.dataset.active = state.priceTextSelectedIds.has(candidate.id);
@@ -1834,7 +1961,7 @@ function renderPriceTextBuilder() {
     name.textContent = candidate.label;
 
     const priceLabel = document.createElement("strong");
-    priceLabel.textContent = Number.isFinite(price) && price > 0 ? `RMB ${formatPriceTextRmb(price)}` : "待确认";
+    priceLabel.textContent = price === null ? "待确认" : `RMB ${formatPriceTextRmb(price, languageId)}`;
 
     label.append(checkbox, name, priceLabel);
     elements.priceTextOptions.append(label);
@@ -3285,10 +3412,19 @@ function bindInputs() {
     renderPriceTextOutput();
   });
 
+  elements.priceTextLanguage?.addEventListener("change", () => {
+    syncPriceTextProductName();
+    renderPriceTextBuilder();
+  });
+
+  elements.priceTextIncludeFob?.addEventListener("change", () => {
+    renderPriceTextBuilder();
+  });
+
   elements.copyPriceText.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(elements.priceTextOutput.value);
-      flashSaved("葡语报价已复制");
+      flashSaved("报价文字已复制");
     } catch {
       flashSaved("复制失败");
     }
