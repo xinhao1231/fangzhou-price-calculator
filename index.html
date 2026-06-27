@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260626-6">
+    <link rel="stylesheet" href="styles.css?v=20260627-1">
   </head>
   <body>
     <main class="app-shell">
@@ -80,6 +80,13 @@
                 <option value="20gp">20GP</option>
                 <option value="40hq" selected>40HQ</option>
                 <option value="40nor">40NOR</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>FOB港口</span>
+              <select id="freightPort">
+                <option value="ningbo" selected>宁波港</option>
+                <option value="suzhou">苏州港（40HQ ¥8500）</option>
               </select>
             </label>
             <label class="field check-field">
@@ -297,6 +304,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260626-6"></script>
+    <script src="app.js?v=20260627-1"></script>
   </body>
 </html>

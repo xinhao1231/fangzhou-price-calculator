@@ -10,6 +10,20 @@ const CONTAINERS = {
   "40nor": { label: "40NOR", volume: 58, price: 6800 }
 };
 
+const FREIGHT_PORTS = {
+  ningbo: {
+    label: "宁波港",
+    piPort: "Ningbo",
+    prices: { "20gp": 3800, "40hq": 6800, "40nor": 6800 }
+  },
+  suzhou: {
+    label: "苏州港",
+    piPort: "Suzhou",
+    prices: { "40hq": 8500 },
+    forceContainer: "40hq"
+  }
+};
+
 const EXCHANGE_RATE_PROVIDERS = [
   {
     url: "https://api.frankfurter.app/latest?from=USD&to=CNY",
@@ -568,6 +582,7 @@ const state = {
   extraCost: 0,
   exchangeRate: 7.2,
   containerId: "40hq",
+  freightPortId: "ningbo",
   includeFob: false,
   mixedItems: loadMixedItems(),
   docSettings: loadDocSettings(),
@@ -588,6 +603,7 @@ const elements = {
   refreshExchangeRate: document.querySelector("#refreshExchangeRate"),
   exchangeRateStatus: document.querySelector("#exchangeRateStatus"),
   containerType: document.querySelector("#containerType"),
+  freightPort: document.querySelector("#freightPort"),
   includeFob: document.querySelector("#includeFob"),
   selectedName: document.querySelector("#selectedName"),
   totalCny: document.querySelector("#totalCny"),
@@ -805,6 +821,42 @@ function currentProduct() {
   return state.products.find((product) => product.id === state.productId);
 }
 
+function currentFreightPort() {
+  return FREIGHT_PORTS[state.freightPortId] || FREIGHT_PORTS.ningbo;
+}
+
+function currentContainer() {
+  const baseContainer = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+  const port = currentFreightPort();
+  const price = port.prices[state.containerId] ?? baseContainer.price;
+  return {
+    ...baseContainer,
+    price,
+    portId: state.freightPortId,
+    portLabel: port.label,
+    piPort: port.piPort
+  };
+}
+
+function syncFreightControls() {
+  state.freightPortId = elements.freightPort?.value || "ningbo";
+  const port = currentFreightPort();
+  if (port.forceContainer && elements.containerType) {
+    elements.containerType.value = port.forceContainer;
+  }
+  state.containerId = elements.containerType?.value || "40hq";
+}
+
+function syncDocPortFromFreightPort() {
+  if (!elements.docPort) return;
+  const nextPort = currentFreightPort().piPort;
+  const currentPort = elements.docPort.value.trim();
+  if (!currentPort || ["Ningbo", "Suzhou"].includes(currentPort)) {
+    elements.docPort.value = nextPort;
+    readDocSettingsFromForm();
+  }
+}
+
 function currentOption() {
   return currentProduct().options.find((option) => option.id === state.optionId);
 }
@@ -996,7 +1048,7 @@ function packagingCostPerUnit(quantity) {
   return packagingCostById(selectedPackagingId(), quantity, currentPackagingSize());
 }
 
-function fobInfoForLogistics(logisticsInfo, container = CONTAINERS[state.containerId] || CONTAINERS["40hq"]) {
+function fobInfoForLogistics(logisticsInfo, container = currentContainer()) {
   if (!logisticsInfo?.cbm || !logisticsInfo?.cartonQty) return null;
   const units = (container.volume / logisticsInfo.cbm) * logisticsInfo.cartonQty;
   return { container, units, cost: container.price / units };
@@ -1573,7 +1625,7 @@ function syncUnitPrice() {
 }
 
 function calculate() {
-  state.containerId = elements.containerType.value;
+  syncFreightControls();
   state.includeFob = elements.includeFob.checked;
   const logisticsInfo = currentLogistics();
   const currentFobInfo = fobInfo(logisticsInfo);
@@ -1821,7 +1873,7 @@ function addCurrentToMixed() {
 }
 
 function calculateMixedFob() {
-  const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+  const container = currentContainer();
   const lines = state.mixedItems.map((rawItem) => {
     const item = normalizeMixedItem(rawItem);
     const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
@@ -1995,7 +2047,7 @@ function documentLines() {
     const cartonCbm = Number(line.logistics?.cbm) || 0;
     const orderQty = line.quantity;
     const cartonCount = cartonQty ? Math.ceil(orderQty / cartonQty) : 0;
-    const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+    const container = currentContainer();
     const containerCapacity = cartonCbm && cartonQty ? (container.volume / cartonCbm) * cartonQty : 0;
     const perProductFob = fobInfoForLogistics(line.logistics, container);
     const documentUnitRmb = usePerProductFob ? line.baseUnitCost + (perProductFob?.cost || 0) : line.fobUnitPrice;
@@ -2418,6 +2470,7 @@ async function buildPiDocxBlob(lines, settings = readDocSettingsFromForm()) {
 
 function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
   const totals = documentTotals(lines);
+  const container = currentContainer();
   const detailRows = [
     ["Name:", (line) => line.description],
     ["Size:", (line) => line.volume || line.name],
@@ -2470,11 +2523,11 @@ function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
     <colgroup>
       <col style="width:170px"><col style="width:90px"><col style="width:260px"><col style="width:95px"><col style="width:80px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:70px"><col style="width:80px"><col style="width:80px"><col style="width:92px"><col style="width:75px">
     </colgroup>
-    <tr><td class="title" colspan="16">Quotation Template - ${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</td></tr>
+    <tr><td class="title" colspan="16">Quotation Template - ${escapeHtml(container.label || "40HQ")}</td></tr>
     <tr><td colspan="2">PI NO.</td><td colspan="3">${escapeHtml(settings.piNo)}</td><td colspan="2">Date</td><td colspan="3">${formatDateForDoc(settings.date)}</td><td colspan="2">Buyer</td><td colspan="4">${escapeHtml(settings.buyerName)}</td></tr>
     <tr>
       <th rowspan="2">Photo</th><th colspan="2" rowspan="2">Description</th><th rowspan="2">FOB<br>${escapeHtml(settings.port)}<br>USD/Each</th><th rowspan="2">Packing<br>Qty/Ctn</th>
-      <th colspan="3">Measurement</th><th rowspan="2">CTN<br>CBM</th><th rowspan="2">Unit<br>Weight<br>kg/pc</th><th rowspan="2">Carton<br>Weight<br>kg/ctn</th><th rowspan="2">QTY<br>${escapeHtml(CONTAINERS[state.containerId]?.label || "40HQ")}</th><th rowspan="2">Carton<br>QTY</th><th rowspan="2">Order<br>QTY</th><th rowspan="2">FOB TOTAL $</th><th rowspan="2">CBM</th>
+      <th colspan="3">Measurement</th><th rowspan="2">CTN<br>CBM</th><th rowspan="2">Unit<br>Weight<br>kg/pc</th><th rowspan="2">Carton<br>Weight<br>kg/ctn</th><th rowspan="2">QTY<br>${escapeHtml(container.label || "40HQ")}</th><th rowspan="2">Carton<br>QTY</th><th rowspan="2">Order<br>QTY</th><th rowspan="2">FOB TOTAL $</th><th rowspan="2">CBM</th>
     </tr>
     <tr>
       <th>L</th><th>W</th><th>H</th>
@@ -2679,7 +2732,7 @@ function xlsxDetailRows(line) {
 }
 
 function buildPackingListSheetXml(lines, settings, imageEntries) {
-  const container = CONTAINERS[state.containerId] || CONTAINERS["40hq"];
+  const container = currentContainer();
   const totals = documentTotals(lines);
   const rows = [];
   const merges = ["A1:A2", "B1:C2", "D1:D2", "E1:E2", "F1:H1", "I1:I2", "M1:M2", "N1:N2", "O1:O2", "P1:P2"];
@@ -3087,6 +3140,7 @@ function renderSummary() {
   const logisticsInfo = currentLogistics();
   const selected = currentSelectionLabel();
   const mixed = calculateMixedFob();
+  const freightContainer = currentContainer();
 
   elements.selectedName.textContent = selected;
   elements.totalCny.textContent = formatCny(result.totalCny);
@@ -3115,6 +3169,7 @@ function renderSummary() {
     `外箱尺寸：${logisticsInfo?.cartonSpec || "待填写"}`,
     `装箱量：${logisticsInfo?.cartonQty ? `${logisticsInfo.cartonQty} / 箱` : "待填写"}`,
     `单个重量：${logisticsInfo?.unitWeight || "待填写"}`,
+    `FOB港口：${freightContainer.portLabel} · ${freightContainer.label} · ${formatCny(freightContainer.price)}`,
     `FOB费用/个：${result.fobUnits ? formatCny(result.fobCost) : "待填写"}`,
     `FOB单个价格：${result.fobUnitWithMargin === null ? "待填写" : formatCny(result.fobUnitWithMargin)}`,
     `FOB单个美元：${result.fobUnitUsd === null ? "待填写" : formatUsd(result.fobUnitUsd)}`,
@@ -3160,7 +3215,13 @@ function bindInputs() {
   });
 
   elements.containerType.addEventListener("change", () => {
-    state.containerId = elements.containerType.value;
+    syncFreightControls();
+    renderSummary();
+  });
+
+  elements.freightPort?.addEventListener("change", () => {
+    syncFreightControls();
+    syncDocPortFromFreightPort();
     renderSummary();
   });
 
