@@ -1894,8 +1894,19 @@ function priceTextPackagingSize(candidate) {
   return null;
 }
 
+function priceTextDiscountPrice(candidate) {
+  const discountInput = elements.discountPrice.value.trim();
+  if (discountInput === "") return null;
+  if (candidate.option.id !== currentOption().id) return null;
+  const candidateKey = configPriceKeyForSelections(candidate.option, candidate.selections);
+  const currentKey = configPriceKeyForSelections(currentOption(), state.configSelections);
+  if (candidateKey !== currentKey) return null;
+  return Math.max(0, numberFromInput(elements.discountPrice));
+}
+
 function priceTextUnitPrice(candidate, includeFob) {
-  const productPrice = Number(savedPriceForSelections(candidate.option, candidate.selections));
+  const discountPrice = priceTextDiscountPrice(candidate);
+  const productPrice = discountPrice === null ? Number(savedPriceForSelections(candidate.option, candidate.selections)) : discountPrice;
   if (!Number.isFinite(productPrice) || productPrice <= 0) return null;
   if (!includeFob) return productPrice;
 
