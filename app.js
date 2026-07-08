@@ -676,6 +676,7 @@ const state = {
   containerId: "40hq",
   freightPortId: "ningbo",
   includeFob: false,
+  mixedFobMode: "mixed-share",
   mixedItems: loadMixedItems(),
   docSettings: loadDocSettings(),
   priceTextSelectionKey: "",
@@ -712,6 +713,8 @@ const elements = {
   clearMixedItems: document.querySelector("#clearMixedItems"),
   mixedTotalCbm: document.querySelector("#mixedTotalCbm"),
   mixedContainerUsage: document.querySelector("#mixedContainerUsage"),
+  mixedFobMode: document.querySelector("#mixedFobMode"),
+  mixedFreightLabel: document.querySelector("#mixedFreightLabel"),
   mixedFreightTotal: document.querySelector("#mixedFreightTotal"),
   mixedList: document.querySelector("#mixedList"),
   mixedEmpty: document.querySelector("#mixedEmpty"),
@@ -2010,7 +2013,7 @@ function addCurrentToMixed() {
   flashSaved("已加入混装");
 }
 
-function calculateMixedFob() {
+function calculateMixedFob(mode = state.mixedFobMode || "mixed-share") {
   const container = currentContainer();
   const lines = state.mixedItems.map((rawItem) => {
     const item = normalizeMixedItem(rawItem);
@@ -2037,29 +2040,50 @@ function calculateMixedFob() {
   });
 
   const totalCbm = lines.reduce((sum, line) => sum + line.totalCbm, 0);
-  lines.forEach((line) => {
-    if (!totalCbm || !line.totalCbm) return;
-    line.freightShare = line.totalCbm / totalCbm;
-    line.freightTotal = container.price * line.freightShare;
-    line.freightPerUnit = line.freightTotal / line.quantity;
-    line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
-    line.fobTotalPrice = line.fobUnitPrice * line.quantity;
-  });
+  if (mode === "per-product") {
+    lines.forEach((line) => {
+      const singleFob = fobInfoForLogistics(line.logistics, container);
+      line.freightPerUnit = singleFob?.cost || 0;
+      line.freightTotal = line.freightPerUnit * line.quantity;
+      line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
+      line.fobTotalPrice = line.fobUnitPrice * line.quantity;
+    });
+  } else {
+    lines.forEach((line) => {
+      if (!totalCbm || !line.totalCbm) return;
+      line.freightShare = line.totalCbm / totalCbm;
+      line.freightTotal = container.price * line.freightShare;
+      line.freightPerUnit = line.freightTotal / line.quantity;
+      line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
+      line.fobTotalPrice = line.fobUnitPrice * line.quantity;
+    });
+  }
+
+  const freightTotal = mode === "per-product"
+    ? lines.reduce((sum, line) => sum + line.freightTotal, 0)
+    : totalCbm
+      ? container.price
+      : 0;
 
   return {
     container,
     lines,
+    mode,
     totalCbm,
     usage: container.volume ? totalCbm / container.volume : 0,
-    freightTotal: totalCbm ? container.price : 0
+    freightTotal
   };
 }
 
 function renderMixedFob() {
-  const mixed = calculateMixedFob();
+  state.mixedFobMode = elements.mixedFobMode?.value || state.mixedFobMode || "mixed-share";
+  const mixed = calculateMixedFob(state.mixedFobMode);
   elements.mixedTotalCbm.textContent = mixed.totalCbm.toFixed(3);
   elements.mixedContainerUsage.textContent = `${Math.round(mixed.usage * 100)}%`;
   elements.mixedContainerUsage.dataset.warning = mixed.usage > 1 ? "true" : "false";
+  if (elements.mixedFreightLabel) {
+    elements.mixedFreightLabel.textContent = mixed.mode === "per-product" ? "拼柜运费" : "分摊运费";
+  }
   elements.mixedFreightTotal.textContent = formatCny(mixed.freightTotal);
   elements.mixedList.innerHTML = "";
   elements.mixedEmpty.hidden = state.mixedItems.length > 0;
@@ -2178,7 +2202,7 @@ function documentLines() {
   const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, 7.2));
   const settings = readDocSettingsFromForm();
   const usePerProductFob = settings.fobMode !== "mixed-share";
-  const mixed = calculateMixedFob();
+  const mixed = calculateMixedFob("mixed-share");
   return mixed.lines.map((line, index) => {
     const dims = parseCartonSpec(line.logistics?.cartonSpec);
     const cartonQty = Number(line.logistics?.cartonQty) || 0;
@@ -3402,6 +3426,11 @@ function bindInputs() {
     persistMixedItems();
     renderMixedFob();
     flashSaved("混装已清空");
+  });
+
+  elements.mixedFobMode?.addEventListener("change", () => {
+    state.mixedFobMode = elements.mixedFobMode.value || "mixed-share";
+    renderMixedFob();
   });
 
   elements.savePrice.addEventListener("click", () => {

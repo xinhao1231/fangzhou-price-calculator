@@ -444,6 +444,31 @@ h2 {
   margin-right: 0;
 }
 
+.mixed-mode {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mixed-mode span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mixed-mode select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--brand-strong);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .mixed-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

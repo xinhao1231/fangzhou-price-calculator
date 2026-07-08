@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260629-1">
+    <link rel="stylesheet" href="styles.css?v=20260709-1">
   </head>
   <body>
     <main class="app-shell">
@@ -258,6 +258,13 @@
             <h3 class="summary-section-title">混装FOB</h3>
             <button class="text-button" id="clearMixedItems" type="button">清空</button>
           </div>
+          <label class="mixed-mode">
+            <span>计算模式</span>
+            <select id="mixedFobMode">
+              <option value="mixed-share" selected>整柜FOB：按CBM分摊</option>
+              <option value="per-product">拼柜FOB：显示单品FOB</option>
+            </select>
+          </label>
           <div class="mixed-stats">
             <div>
               <span>总CBM</span>
@@ -268,12 +275,12 @@
               <strong id="mixedContainerUsage">0%</strong>
             </div>
             <div>
-              <span>分摊运费</span>
+              <span id="mixedFreightLabel">分摊运费</span>
               <strong id="mixedFreightTotal">¥0.00</strong>
             </div>
           </div>
           <div class="mixed-list" id="mixedList"></div>
-          <p class="mixed-empty" id="mixedEmpty">把产品加入混装后，这里会按总CBM分摊FOB费用。</p>
+          <p class="mixed-empty" id="mixedEmpty">把产品加入混装后，这里会按所选模式计算FOB费用。</p>
         </section>
 
         <section class="price-text-panel" aria-label="价格文字">
@@ -319,6 +326,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260629-1"></script>
+    <script src="app.js?v=20260709-1"></script>
   </body>
 </html>
