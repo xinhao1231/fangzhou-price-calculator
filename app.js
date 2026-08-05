@@ -305,6 +305,22 @@ const INDOOR_FULL_SIZES = [
   { id: "30l", label: "30L" }
 ];
 
+const INDOOR_PRODUCT_SIZES = {
+  "3l": "17*17*24",
+  "5l": "20.5*20.5*28",
+  "8l": "22.5*22.5*31",
+  "12l": "25*25*37",
+  "20l": "29*29*41",
+  "30l": "29*29*61.5"
+};
+
+const SQUARE_BIN_PRODUCT_SIZE = "22.5*13.8*29";
+const SENSOR_BIN_PRODUCT_SIZE = "37*37*63";
+const TOILET_BRUSH_PRODUCT_SIZES = {
+  large: "9.5*37",
+  small: "9.5*32"
+};
+
 const logistics = (cartonQty, cartonSpec, unitWeight, cbm) => ({ cartonQty, cartonSpec, unitWeight, cbm });
 const prices = (entries) => Object.fromEntries(entries);
 
@@ -847,6 +863,7 @@ function normalizeMixedItem(item) {
   const normalized = {
     ...item,
     nested: Boolean(item.nested),
+    productSize: item.productSize || productSizeFromName(item.name),
     packagingSize: item.packagingSize || inferPackagingSizeFromName(item.name)
   };
   if (!normalized.name?.includes("感应垃圾桶")) return normalized;
@@ -1561,6 +1578,39 @@ function volumeLabelFromName(name = "") {
   return match ? `${match[0].replace(/[^0-9]/g, "")}L` : "";
 }
 
+function productSizeForSelections(product, option, selections = {}) {
+  if (product?.id === "indoor-bin") {
+    if (["stainless-pedal", "painted", "bamboo-lid"].includes(option?.id)) {
+      return INDOOR_PRODUCT_SIZES[selections.size] || "";
+    }
+    if (option?.id === "square") return SQUARE_BIN_PRODUCT_SIZE;
+    if (option?.id === "sensor") return SENSOR_BIN_PRODUCT_SIZE;
+  }
+  if (product?.id === "toilet-brush") {
+    return TOILET_BRUSH_PRODUCT_SIZES[option?.id] || "";
+  }
+  return "";
+}
+
+function currentProductSize() {
+  return productSizeForSelections(currentProduct(), currentOption(), state.configSelections);
+}
+
+function productSizeFromName(name = "") {
+  const text = String(name);
+  if (text.includes("方形垃圾桶")) return SQUARE_BIN_PRODUCT_SIZE;
+  if (text.includes("感应垃圾桶")) return SENSOR_BIN_PRODUCT_SIZE;
+  if (text.includes("马桶刷")) {
+    if (text.includes("小号")) return TOILET_BRUSH_PRODUCT_SIZES.small;
+    return TOILET_BRUSH_PRODUCT_SIZES.large;
+  }
+  if (text.includes("不锈钢脚踏垃圾桶") || text.includes("喷漆垃圾桶") || text.includes("竹盖垃圾桶")) {
+    const volume = volumeLabelFromName(text).toLowerCase();
+    return INDOOR_PRODUCT_SIZES[volume] || "";
+  }
+  return "";
+}
+
 function packagingLabel(packagingId, nested = false) {
   const labels = {
     "no-color-box": nested ? "Nested inside larger item" : "1/pc poly bag",
@@ -2011,6 +2061,7 @@ function addCurrentToMixed() {
   state.mixedItems.push({
     id,
     name: currentSelectionLabel(),
+    productSize: currentProductSize(),
     quantity: result.quantity,
     unitPrice: result.unitPrice,
     packagingId: selectedPackagingId(),
@@ -2065,20 +2116,22 @@ function calculateMixedFob(mode = state.mixedFobMode || "mixed-share") {
     });
   } else {
     lines.forEach((line) => {
-      if (!totalCbm || !line.totalCbm) return;
-      line.freightShare = line.totalCbm / totalCbm;
-      line.freightTotal = container.price * line.freightShare;
-      line.freightPerUnit = line.freightTotal / line.quantity;
+      if (!totalCbm || !line.totalCbm) {
+        if (!line.nested) return;
+        const singleFob = fobInfoForLogistics(line.logistics, container);
+        line.freightPerUnit = singleFob?.cost || 0;
+        line.freightTotal = line.freightPerUnit * line.quantity;
+      } else {
+        line.freightShare = line.totalCbm / totalCbm;
+        line.freightTotal = container.price * line.freightShare;
+        line.freightPerUnit = line.freightTotal / line.quantity;
+      }
       line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
       line.fobTotalPrice = line.fobUnitPrice * line.quantity;
     });
   }
 
-  const freightTotal = mode === "per-product"
-    ? lines.reduce((sum, line) => sum + line.freightTotal, 0)
-    : totalCbm
-      ? container.price
-      : 0;
+  const freightTotal = lines.reduce((sum, line) => sum + line.freightTotal, 0);
 
   return {
     container,
@@ -2237,6 +2290,7 @@ function documentLines() {
       name: line.name,
       description: englishDescription(line.name),
       volume: volumeLabelFromName(line.name),
+      productSize: line.productSize || productSizeFromName(line.name),
       material: materialDescription(line.name),
       finishing: finishingDescription(line.name),
       packagingText: packagingLabel(line.packagingId, line.nested),
@@ -2650,7 +2704,7 @@ function buildPackingListHtml(lines, settings = readDocSettingsFromForm()) {
   const container = currentContainer();
   const detailRows = [
     ["Name:", (line) => line.description],
-    ["Size:", (line) => line.volume || line.name],
+    ["Size:", (line) => line.productSize || line.volume || line.name],
     ["Material:", (line) => line.material],
     ["Finishing:", (line) => line.finishing],
     ["Packaging:", (line) => line.packagingText],
@@ -2899,7 +2953,7 @@ function xlsxDrawingRelsXml(imageEntries) {
 function xlsxDetailRows(line) {
   return [
     ["Name:", line.description],
-    ["Size:", line.volume || line.name],
+    ["Size:", line.productSize || line.volume || line.name],
     ["Material:", line.material],
     ["Finishing:", line.finishing],
     ["Packaging:", line.packagingText],
