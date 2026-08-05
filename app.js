@@ -10,6 +10,9 @@ const CONTAINERS = {
   "40nor": { label: "40NOR", volume: 58, price: 6800 }
 };
 
+const PACKING_CONTAINER_OPTIONS = ["40HQ", "40HC", "40GP", "40NOR", "20GP"];
+const PACKING_DETAIL_ROW_COUNT = 8;
+
 const FREIGHT_PORTS = {
   ningbo: {
     label: "宁波港",
@@ -1157,6 +1160,18 @@ function fobInfoForLogistics(logisticsInfo, container = currentContainer()) {
 
 function fobInfo(logisticsInfo) {
   return fobInfoForLogistics(logisticsInfo);
+}
+
+function packingContainerVolumeFormula(cellRef = "$L$2") {
+  return `CHOOSE(MATCH(SUBSTITUTE(UPPER(${cellRef})," ",""),{"40HQ","40HC","40GP","40NOR","20GP"},0),68,68,58,58,28)`;
+}
+
+function packingContainerFreightFormula(cellRef = "$L$2") {
+  const port = currentFreightPort();
+  const fortyHqPrice = port.prices["40hq"] ?? CONTAINERS["40hq"].price;
+  const fortyNorPrice = port.prices["40nor"] ?? CONTAINERS["40nor"].price;
+  const twentyGpPrice = port.prices["20gp"] ?? CONTAINERS["20gp"].price;
+  return `CHOOSE(MATCH(SUBSTITUTE(UPPER(${cellRef})," ",""),{"40HQ","40HC","40GP","40NOR","20GP"},0),${fortyHqPrice},${fortyHqPrice},${fortyNorPrice},${fortyNorPrice},${twentyGpPrice})`;
 }
 
 function currentSavedPrice() {
@@ -2889,6 +2904,7 @@ function xlsxDetailRows(line) {
     ["Finishing:", line.finishing],
     ["Packaging:", line.packagingText],
     ["RMB Price:", fixedNumber(line.baseUnitRmb, 2)],
+    ["FOB RMB Price:", fixedNumber(line.unitRmb, 2)],
     ["Remark:", line.nested ? "Nested inside larger item; no extra CBM" : ""]
   ];
 }
@@ -2896,6 +2912,11 @@ function xlsxDetailRows(line) {
 function buildPackingListSheetXml(lines, settings, imageEntries) {
   const container = currentContainer();
   const totals = documentTotals(lines);
+  const exchangeRate = Math.max(0.1, numberFromInput(elements.exchangeRate, state.exchangeRate || 7.2));
+  const exchangeRateFormulaValue = Number(exchangeRate.toFixed(4));
+  const containerTypeCell = "$L$2";
+  const containerVolumeFormula = packingContainerVolumeFormula(containerTypeCell);
+  const containerFreightFormula = packingContainerFreightFormula(containerTypeCell);
   const rows = [];
   const merges = ["A1:A2", "B1:C2", "D1:D2", "E1:E2", "F1:H1", "I1:I2", "M1:M2", "N1:N2", "O1:O2", "P1:P2"];
 
@@ -2924,21 +2945,33 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
   }, 1, "36"));
 
   lines.forEach((line, index) => {
-    const startRow = 3 + index * 7;
-    const endRow = startRow + 6;
+    const startRow = 3 + index * PACKING_DETAIL_ROW_COUNT;
+    const endRow = startRow + PACKING_DETAIL_ROW_COUNT - 1;
+    const rmbPriceRow = startRow + 5;
+    const fobRmbPriceRow = startRow + 6;
+    const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
+    const baseUnitRmb = Number(line.baseUnitRmb);
+    const hasInitialFob = Number.isFinite(baseUnitRmb) && Number.isFinite(initialPerProductFob?.cost);
+    const initialFobRmb = hasInitialFob ? baseUnitRmb + initialPerProductFob.cost : "";
+    const initialFobUsd = hasInitialFob ? initialFobRmb / exchangeRateFormulaValue : "";
     ["A", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"].forEach((column) => {
       merges.push(`${column}${startRow}:${column}${endRow}`);
     });
 
     xlsxDetailRows(line).forEach(([label, value], offset) => {
       const rowNumber = startRow + offset;
+      const valueCell = label === "RMB Price:"
+        ? xlsxNumberCell(3, rowNumber, value, 3)
+        : label === "FOB RMB Price:"
+          ? xlsxFormulaCell(3, rowNumber, `IF(OR(C${rmbPriceRow}="",L${startRow}="",L${startRow}=0),"",C${rmbPriceRow}+${containerFreightFormula}/L${startRow})`, initialFobRmb, 3)
+          : xlsxStringCell(3, rowNumber, value, 3);
       const cells = {
         2: xlsxStringCell(2, rowNumber, label, 2),
-        3: xlsxStringCell(3, rowNumber, value, 3)
+        3: valueCell
       };
       if (offset === 0) {
         cells[1] = xlsxBlankCell(1, rowNumber, 7);
-        cells[4] = xlsxNumberCell(4, rowNumber, fixedNumber(line.unitUsd, 2), 5);
+        cells[4] = xlsxFormulaCell(4, rowNumber, `IF(C${fobRmbPriceRow}="","",C${fobRmbPriceRow}/${exchangeRateFormulaValue})`, initialFobUsd, 5);
         cells[5] = xlsxNumberCell(5, rowNumber, line.cartonQty, 6);
         cells[6] = xlsxNumberCell(6, rowNumber, line.length, 5);
         cells[7] = xlsxNumberCell(7, rowNumber, line.width, 5);
@@ -2946,24 +2979,30 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
         cells[9] = xlsxFormulaCell(9, rowNumber, `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`, line.cartonCbm, 5);
         cells[10] = xlsxNumberCell(10, rowNumber, line.unitWeightKg === "" ? "" : line.unitWeightKg, 5);
         cells[11] = xlsxNumberCell(11, rowNumber, line.cartonWeightKg === "" ? "" : line.cartonWeightKg, 5);
-        cells[12] = xlsxFormulaCell(12, rowNumber, `IFERROR(${container.volume}/I${startRow}*E${startRow},"")`, line.containerCapacity, 5);
+        cells[12] = xlsxFormulaCell(12, rowNumber, `IFERROR(${containerVolumeFormula}/I${startRow}*E${startRow},"")`, line.containerCapacity, 5);
         cells[13] = xlsxFormulaCell(13, rowNumber, `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`, line.cartonQty ? line.orderQty / line.cartonQty : "", 10);
         cells[14] = xlsxNumberCell(14, rowNumber, line.orderQty, 10);
-        cells[15] = xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, line.totalUsd, 9);
+        cells[15] = xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, initialFobUsd * line.orderQty, 9);
         cells[16] = xlsxFormulaCell(16, rowNumber, line.nested ? "0" : `IF(OR(N${startRow}="",E${startRow}="",I${startRow}=""),"",N${startRow}/E${startRow}*I${startRow})`, line.totalCbm, 9);
       }
       rows.push(xlsxPackingRow(rowNumber, cells, "15"));
     });
   });
 
-  const totalRow = lines.length ? 3 + lines.length * 7 : 3;
+  const totalRow = lines.length ? 3 + lines.length * PACKING_DETAIL_ROW_COUNT : 3;
   const sumRangeEnd = Math.max(3, totalRow - 1);
   const totalCartonsByFormula = lines.reduce((sum, line) => sum + (line.cartonQty ? line.orderQty / line.cartonQty : 0), 0);
+  const totalFobUsdByFormula = lines.reduce((sum, line) => {
+    const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
+    const baseUnitRmb = Number(line.baseUnitRmb);
+    if (!Number.isFinite(baseUnitRmb) || !Number.isFinite(initialPerProductFob?.cost)) return sum;
+    return sum + ((baseUnitRmb + initialPerProductFob.cost) / exchangeRateFormulaValue) * line.orderQty;
+  }, 0);
   rows.push(xlsxFullRow(totalRow, {
     12: xlsxStringCell(12, totalRow, "Total", 11),
     13: xlsxFormulaCell(13, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",M$3:M$${sumRangeEnd})`, totalCartonsByFormula, 12),
     14: xlsxFormulaCell(14, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",N$3:N$${sumRangeEnd})`, totals.totalQty, 12),
-    15: xlsxFormulaCell(15, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",O$3:O$${sumRangeEnd})`, totals.totalUsd, 12),
+    15: xlsxFormulaCell(15, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",O$3:O$${sumRangeEnd})`, totalFobUsdByFormula, 12),
     16: xlsxFormulaCell(16, totalRow, `SUMIF($B$3:$B$${sumRangeEnd},"Name:",P$3:P$${sumRangeEnd})`, totals.totalCbm, 12)
   }, 0, "15"));
 
@@ -2974,10 +3013,11 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
   <cols>
     <col min="1" max="1" width="23.83203125" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="34" customWidth="1"/><col min="4" max="4" width="15.1640625" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/><col min="6" max="8" width="10" customWidth="1"/><col min="9" max="9" width="11" customWidth="1"/><col min="10" max="11" width="9.1640625" customWidth="1"/><col min="12" max="12" width="10" customWidth="1"/><col min="13" max="14" width="12" customWidth="1"/><col min="15" max="15" width="14" customWidth="1"/><col min="16" max="16" width="10" customWidth="1"/>
   </cols>
-  <sheetData>${rows.join("")}</sheetData>
-  <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
-  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
-</worksheet>`;
+	  <sheetData>${rows.join("")}</sheetData>
+	  <mergeCells count="${merges.length}">${merges.map((ref) => `<mergeCell ref="${ref}"/>`).join("")}</mergeCells>
+	  <dataValidations count="1"><dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorTitle="Invalid container type" error="Please select 40HQ, 40HC, 40GP, 40NOR, or 20GP." promptTitle="Container Type" prompt="Choose a type: 40HQ/40HC=68 CBM; 40GP/40NOR=58 CBM; 20GP=28 CBM." sqref="L2"><formula1>"${PACKING_CONTAINER_OPTIONS.join(",")}"</formula1></dataValidation></dataValidations>
+	  ${imageEntries.length ? '<drawing r:id="rId1"/>' : ""}
+	</worksheet>`;
 }
 
 function piLayoutRows(lines) {
@@ -3235,11 +3275,11 @@ function buildPackingListXlsxBlob(lines, settings = readDocSettingsFromForm()) {
     const image = dataUrlToBytes(line.imageData);
     if (!image) return;
     const imageIndex = imageEntries.length + 1;
-    const startRow = 3 + index * 7;
+    const startRow = 3 + index * PACKING_DETAIL_ROW_COUNT;
     const mediaName = `image${imageIndex}.${image.extension}`;
     imageEntries.push({
       startRow,
-      endRow: startRow + 6,
+      endRow: startRow + PACKING_DETAIL_ROW_COUNT - 1,
       mediaName,
       relId: `rId${imageIndex}`,
       extension: image.extension
