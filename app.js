@@ -24,6 +24,12 @@ const FREIGHT_PORTS = {
     piPort: "Suzhou",
     prices: { "40hq": 10000 },
     forceContainer: "40hq"
+  },
+  yiwu: {
+    label: "义乌",
+    piPort: "Yiwu",
+    prices: { "40hq": 2000 },
+    forceContainer: "40hq"
   }
 };
 
@@ -968,7 +974,7 @@ function syncDocPortFromFreightPort() {
   if (!elements.docPort) return;
   const nextPort = currentFreightPort().piPort;
   const currentPort = elements.docPort.value.trim();
-  if (!currentPort || ["Ningbo", "Suzhou"].includes(currentPort)) {
+  if (!currentPort || ["Ningbo", "Suzhou", "Yiwu"].includes(currentPort)) {
     elements.docPort.value = nextPort;
     readDocSettingsFromForm();
   }
