@@ -53,6 +53,7 @@ const PRICE_TEXT_LANGUAGES = {
     label: "Português",
     names: {
       "outdoor-bin": "cesto de lixo externo",
+      "price-list-products": "produtos da tabela de preços",
       "indoor-bin|stainless-pedal": "cesto de lixo inox com pedal",
       "indoor-bin|painted": "cesto de lixo pintado com pedal",
       "indoor-bin|bamboo-lid": "cesto de lixo com tampa de bambu",
@@ -69,6 +70,7 @@ const PRICE_TEXT_LANGUAGES = {
     label: "English",
     names: {
       "outdoor-bin": "outdoor trash bin",
+      "price-list-products": "price list products",
       "indoor-bin|stainless-pedal": "stainless steel pedal trash can",
       "indoor-bin|painted": "painted pedal trash can",
       "indoor-bin|bamboo-lid": "bamboo lid trash can",
@@ -85,6 +87,7 @@ const PRICE_TEXT_LANGUAGES = {
     label: "Español",
     names: {
       "outdoor-bin": "cubo de basura exterior",
+      "price-list-products": "productos de la lista de precios",
       "indoor-bin|stainless-pedal": "cubo de basura de acero inoxidable con pedal",
       "indoor-bin|painted": "cubo de basura pintado con pedal",
       "indoor-bin|bamboo-lid": "cubo de basura con tapa de bambú",
@@ -101,6 +104,7 @@ const PRICE_TEXT_LANGUAGES = {
     label: "中文",
     names: {
       "outdoor-bin": "户外垃圾桶",
+      "price-list-products": "价格表产品",
       "indoor-bin|stainless-pedal": "不锈钢脚踏垃圾桶",
       "indoor-bin|painted": "喷漆垃圾桶",
       "indoor-bin|bamboo-lid": "竹盖垃圾桶",
@@ -327,8 +331,85 @@ const TOILET_BRUSH_PRODUCT_SIZES = {
   small: "9.5*32"
 };
 
-const logistics = (cartonQty, cartonSpec, unitWeight, cbm) => ({ cartonQty, cartonSpec, unitWeight, cbm });
+const logistics = (cartonQty, cartonSpec, unitWeight, cbm, cartonMultiplier = 1) => ({ cartonQty, cartonSpec, unitWeight, cbm, cartonMultiplier });
 const prices = (entries) => Object.fromEntries(entries);
+
+const PRICE_LIST_DOC_OPTIONS = [
+  { id: "clf20a-1", label: "CLF20A-1 · 20L", price: 90, productSize: "32*31.5*50", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "37*37*54.5", "3.7kg", 0.07461) },
+  { id: "clf20a-2", label: "CLF20A-2 · 2*20L", price: 183, productSize: "65*31.5*50", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "70*37*54.5", "7.85kg", 0.141155) },
+  { id: "clf20a-3", label: "CLF20A-3 · 3*20L", price: 278, productSize: "98*31.5*50", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "105.5*36*56", "11.9kg", 0.212688) },
+  { id: "clf20a-4", label: "CLF20A-4 · 4*20L", price: 372, productSize: "130.5*31.5*50", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 2只外箱", logistics: logistics(1, "70*37*54.5*2", "15.7kg", 0.28231, 2) },
+  { id: "clf30a-1", label: "CLF30A-1 · 30L", price: 95, productSize: "32*31.5*68", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "37*37*73", "4.75kg", 0.099937) },
+  { id: "clf30a-2", label: "CLF30A-2 · 2*30L", price: 195, productSize: "65*31.5*68", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "70*37*73", "9.75kg", 0.18907) },
+  { id: "clf30a-3", label: "CLF30A-3 · 3*30L", price: 295, productSize: "98*31.5*68", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "101.5*37*73", "14.7kg", 0.274151) },
+  { id: "clf30a-4", label: "CLF30A-4 · 4*30L", price: 395, productSize: "130.5*31.5*68", material: "不锈钢 / 蓝/绿 / 红/黑 / 黄/灰", packingRemark: "1只产品 / 2只外箱", logistics: logistics(1, "70*37*73*2", "21kg", 0.37814, 2) },
+  { id: "clf30a2-2", label: "CLF30A2-2 / 灭烟柱双桶 · 2*30L", price: 230, productSize: "73*31.5*68", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1套产品 / 1只外箱", logistics: logistics(1, "77.5*37.5*73", "10.55kg", 0.212156) },
+  { id: "cld50p", label: "CLD50P · 50L", price: 158, productSize: "Ø38*90", material: "黑/白", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "42.5*42.5*91.5", "8.15kg", 0.165272) },
+  { id: "cld30p", label: "CLD30P · 30L", price: 143, productSize: "Ø30.5*79", material: "黑/白", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "36*36*81", "4.35kg", 0.104976) },
+  { id: "cld50s", label: "CLD50S / 翻盖圆桶 · 50L", price: 168, productSize: "Ø38*75", material: "不锈钢 / 黑/红", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "42.5*42.5*77.5", "7kg", 0.139984) },
+  { id: "cld50e", label: "CLD50E / 直投口圆桶 · 50L", price: 145, productSize: "Ø38*75", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "42.5*42.5*77.5", "6.35kg", 0.139984) },
+  { id: "cld50m", label: "CLD50M / 直投带灭烟 / 圆桶 · 50L", price: 150, productSize: "Ø38*75", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "42.5*42.5*77.5", "6.3kg", 0.139984) },
+  { id: "clf50a-1", label: "CLF50A-1 · 50L", price: 153, productSize: "43*35*65", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "48*41.5*70.5", "6.85kg", 0.140436) },
+  { id: "clf50a-2", label: "CLF50A-2 · 2*50L", price: 316, productSize: "88*35*65", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "92.5*41.5*70.5", "13.75kg", 0.270632) },
+  { id: "clf50a-3", label: "CLF50A-3 · 3*50L", price: 475, productSize: "133*35*65", material: "不锈钢 / 蓝/红 / 绿/灰 / 黑", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "138*41.5*70.5", "20.65kg", 0.403753) },
+  { id: "clf50a-4", label: "CLF50A-4 · 4*50L", price: 635, productSize: "175*35*65", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1套产品 / 2只外箱", logistics: logistics(1, "92.5*41.5*70.5*2只", "27.55kg", 0.541264, 2) },
+  { id: "clf30b-2", label: "CLF30B-2 / 一分二桶 · 2*15L", price: 143, productSize: "43*35*46", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "48*41.5*50.5", "5.05Kg", 0.100596) },
+  { id: "cld50a-1", label: "CLD50A / 三角桶 · 单桶", price: 135, productSize: "单桶: / 40*40*40* / 68高", material: "不锈钢", packingRemark: "", logistics: logistics(1, "90*43.5*69三桶外箱", "17.1Kg", 0.270135) },
+  { id: "cld50a-2", label: "CLD50A / 三角桶 · 双桶", price: 270, productSize: "单桶: / 40*40*40* / 68高", material: "不锈钢", packingRemark: "", logistics: logistics(1, "90*43.5*69三桶外箱", "17.1Kg", 0.270135) },
+  { id: "cld50a-3", label: "CLD50A / 三角桶 · 三桶", price: 405, productSize: "单桶: / 40*40*40* / 68高", material: "不锈钢", packingRemark: "", logistics: logistics(1, "90*43.5*69三桶外箱", "17.1Kg", 0.270135) },
+  { id: "cld20e-1", label: "CLD20E-1 / 灭烟款单桶 · 20L", price: 100, productSize: "32*26*68", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "36*30*70", "4.55kg", 0.0756) },
+  { id: "cld20e-2", label: "CLD20E-2 / 灭烟款双桶 · 2*20L", price: 205, productSize: "64*26*68", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "70*30*70", "9.2kg", 0.147) },
+  { id: "clf18h-2", label: "CLF18H-2 / 一分二桶 / 塑料盖 · 9L*2", price: 118, productSize: "40*32*39.5", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "43.5*31*41.5", "3.85Kg", 0.055963) },
+  { id: "clf27h-3", label: "CLF27H-3 / 一分三桶 / 塑料盖 · 9L*3", price: 160, productSize: "59*32*39.5", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "62.5*31*41.5", "5.5Kg", 0.080406) },
+  { id: "clf18j-2", label: "CLF18J-2 / 一分二桶 / 不锈钢盖 · 18L / 9L*2", price: 138, productSize: "40*31*39.5", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "43.5*31*41.5", "4.05kg", 0.055963) },
+  { id: "clf27j-3", label: "CLF27J-3 / 一分三桶 / 不锈钢盖 · 27L / 9L*3", price: 173, productSize: "59*31*39.5", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "62.5*31*41.5", "5.7kg", 0.080406) },
+  { id: "clf9j-2", label: "CLF9J-2 / 双桶 · 9L*2", price: 145, productSize: "42.6*31*39.5", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "46*31*41.5", "4.8Kg", 0.059179) },
+  { id: "clf9j", label: "CLF9J / 小方桶 · 9L", price: 67, productSize: "21*31*39.5", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "31*24.5*41.5", "2.35kg", 0.031519) },
+  { id: "clf30h-2", label: "CLF30H-2 / 一分二桶 / 塑料盖 · 30L", price: 150, productSize: "44.5*36.5*50.1", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "48.5*39*51.8", "5.6kg", 0.09798) },
+  { id: "clf45h-3", label: "CLF45H-3 / 一分三桶 / 塑料盖 · 45L", price: 176, productSize: "65.5*36.5*50.1", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "68.8*38*51.8", "7.95kg", 0.135426) },
+  { id: "clf30j-2", label: "CLF30J-2 / 不锈钢盖 · 30L", price: 158, productSize: "44.5*36.5*50.1", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "48.5*39*51.8", "5.65kg", 0.09798) },
+  { id: "clf45j-3", label: "CLF45J-3 / 不锈钢盖 · 45L", price: 195, productSize: "66.5*36.5*50.1", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "68.8*38*51.8", "8.3kg", 0.135426) },
+  { id: "cld8s", label: "CLD8S / 双层小圆桶 · 8L", price: 25, productSize: "23*30", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱 / 另有4只装 / 另有8只装", logistics: logistics(1, "23.8*23.8*32", "1.05kg", 0.018126) },
+  { id: "clf8s", label: "CLF8S / 脚踏桶 · 8L", price: 50, productSize: "30*32", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱 / 另有4只装", logistics: logistics(1, "25.5*23.8*35 4个装53*50*37", "1.55kg", 0.021241) },
+  { id: "clf10s", label: "CLF10S / 脚踏桶 · 10L", price: 55, productSize: "30*38", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱 / 另有4只装", logistics: logistics(1, "25.5*23.8*41 4个装53*50*43", "1.75kg", 0.024883) },
+  { id: "clf12s", label: "CLF12S / 脚踏圆桶 · 12L", price: 65, productSize: "32*39.5", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "27.5*27.5*41.5", "", 0.031384) },
+  { id: "clf15s", label: "CLF15S / 脚踏圆桶 · 15L", price: 70, productSize: "32*45.5", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "27.5*27.5*47.5", "2.35kg", 0.035922) },
+  { id: "cld10s-2-1", label: "CLD10S-2 / 直投小圆桶 · 10L · 不锈钢", price: 18, productSize: "Ø22*30", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "6只产品 / 1只外箱", logistics: logistics(6, "69.5*46*31.5", "0.8kg", 0.100706) },
+  { id: "cld10s-2-2", label: "CLD10S-2 / 直投小圆桶 · 10L · 喷塑", price: 20, productSize: "Ø22*30", material: "不锈钢 / 喷塑 / 可供选择", packingRemark: "6只产品 / 1只外箱", logistics: logistics(6, "69.5*46*31.5", "0.8kg", 0.100706) },
+  { id: "cld10f", label: "CLD10F / 直投小方桶 · 10L", price: 20, productSize: "23.5*16.5*29", material: "不锈钢", packingRemark: "6只产品 / 1只外箱", logistics: logistics(6, "50*57.5*30.5", "0.8kg", 0.087688) },
+  { id: "cld30c-1", label: "CLD30C-1 / 直投口桶 · 30L", price: 90, productSize: "32*26*68", material: "不锈钢 / 镀锌喷塑 / 投口/桶身 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "36*30*70", "4.45kg", 0.0756) },
+  { id: "cld20c-1", label: "CLD20C-1 / 直投口单桶 · 20L", price: 85, productSize: "32*26*48", material: "不锈钢 / 镀锌喷塑 / 投口/桶身 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "36*30*54.5", "3.2Kg", 0.05886) },
+  { id: "cld30s-1", label: "CLD30S-1 / 摇盖桶 · 30L", price: 100, productSize: "32*26*68", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "36*30*70", "", 0.0756) },
+  { id: "clf30d", label: "CLF30D / 脚踏圆桶 · 30L", price: 110, productSize: "36*68", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "4.9kg", 0) },
+  { id: "clf30z", label: "CLF30Z / 脚踏茶渣桶 · 30L", price: 120, productSize: "32*31.5*68", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "37*37*73", "5.3kg", 0.099937) },
+  { id: "cld20f-2", label: "CLD20F-2 / 茶渣桶+ / 直投桶 · 20L*2", price: 200, productSize: "65*26*49", material: "不锈钢 / 镀锌喷塑 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "70*30*50", "", 0.105) },
+  { id: "doc-row-48", label: "烟灰柱", price: 170, productSize: "28*28*118", material: "不锈钢 / 黑色 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "6.85kg", 0) },
+  { id: "doc-row-49", label: "仿古烟灰柱", price: 168, productSize: "30*30*107", material: "黑色 / 古铜色 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "7.04kg", 0) },
+  { id: "doc-row-50", label: "小尖头烟柱", price: 130, productSize: "25*25*110", material: "不锈钢 / 黑色 / 可供选择", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "3.85kg", 0) },
+  { id: "doc-row-51", label: "四方平头烟柱", price: 200, productSize: "28*28*110", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "6.27kg", 0) },
+  { id: "doc-row-52", label: "小蛮腰烟柱", price: 138, productSize: "带底盘32*106", material: "不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "4.39kg", 0) },
+  { id: "doc-row-53", label: "半圆弧烟柱", price: 139, productSize: "25*25*110", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "", 0) },
+  { id: "doc-row-54", label: "挂式烟柱", price: 190, productSize: "18*26*117.5", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "", "", 0) },
+  { id: "doc-row-55", label: "壁挂式烟柱", price: 98, productSize: "10*10*57", material: "", packingRemark: "", logistics: logistics(1, "", "", 0) },
+  { id: "doc-row-56", label: "壁挂式烟柱", price: 60, productSize: "9*53", material: "", packingRemark: "", logistics: logistics(1, "", "", 0) },
+  { id: "clf12l", label: "CLF12L · 12L", price: 67, productSize: "22.1*33.9*40.6", material: "", packingRemark: "", logistics: logistics(1, "26.5*38.5*42.5", "2.6kg", 0.043361) },
+  { id: "clf15l", label: "CLF15L · 15L", price: 76, productSize: "22.1*33.9*48.6", material: "", packingRemark: "", logistics: logistics(1, "26.5*38.5*50.5", "4.25kg", 0.051523) },
+  { id: "doc-row-59", label: "脚踏小方桶 · 8L", price: 55, productSize: "28*25*33", material: "", packingRemark: "", logistics: logistics(1, "29.5*26.5*34.5", "1.7kg", 0.02697) },
+  { id: "doc-row-60", label: "脚踏小方桶 · 10L", price: 63, productSize: "28*25*40.5", material: "", packingRemark: "", logistics: logistics(1, "29.5*26.5*42", "1.9kg", 0.032834) },
+  { id: "clf40l-1", label: "CLF40L-1 · 40L", price: 150, productSize: "28.8*41.5*67.5", material: "", packingRemark: "", logistics: logistics(1, "32.5*48*70", "5.4kg", 0.1092) },
+  { id: "doc-row-62", label: "20L · 10L*2", price: 100, productSize: "32*31.5*49.5", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "37*37*54.5", "3.9kg", 0.07461) },
+  { id: "doc-row-63", label: "24L桶 / 一体钢盖 · 12L*2", price: 128, productSize: "40*33.8*44.2", material: "", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "45*39*43.8", "4.16kg", 0.076869) },
+  { id: "doc-row-64", label: "10L双层 / 直投桶", price: 28, productSize: "24*20*30.5", material: "", packingRemark: "", logistics: logistics(1, "", "", 0) },
+  { id: "doc-row-65", label: "15L双层直投桶", price: 30, productSize: "25.5*37", material: "", packingRemark: "", logistics: logistics(1, "", "", 0) },
+  { id: "doc-row-66-1", label: "灭烟方桶 / （大号） · 不锈钢", price: 85, productSize: "25*31*61", material: "镀锌喷塑 / 不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "32*26*61.8", "", 0.051418) },
+  { id: "doc-row-66-2", label: "灭烟方桶 / （大号） · 喷塑", price: 95, productSize: "25*31*61", material: "镀锌喷塑 / 不锈钢", packingRemark: "1只产品 / 1只外箱", logistics: logistics(1, "32*26*61.8", "", 0.051418) },
+  { id: "doc-row-67", label: "灭烟方桶 / （小号）", price: 75, productSize: "24.5*24.5*61", material: "不锈钢", packingRemark: "", logistics: logistics(2, "2个装55*30*62.5", "2.8kg", 0.103125) },
+  { id: "doc-row-68", label: "灭烟方桶 / 双（小号）", price: 150, productSize: "49.5*24.5*61", material: "不锈钢", packingRemark: "", logistics: logistics(1, "55*30*62.5", "5.95kg", 0.103125) },
+  { id: "doc-row-69", label: "小号灭烟款 / 单桶", price: 90, productSize: "24.5*25.5*67.5", material: "", packingRemark: "", logistics: logistics(2, "2个装56.5*30.5*70", "", 0.120627) },
+  { id: "doc-row-70-1", label: "摇盖方桶 / 0.7厚 · 不锈钢", price: 160, productSize: "30*30*68", material: "镀锌喷塑 / 不锈钢", packingRemark: "", logistics: logistics(1, "", "7.25kg", 0) },
+  { id: "doc-row-70-2", label: "摇盖方桶 / 0.7厚 · 喷塑", price: 180, productSize: "30*30*68", material: "镀锌喷塑 / 不锈钢", packingRemark: "", logistics: logistics(1, "", "7.25kg", 0) },
+  { id: "doc-row-71", label: "斜口直投桶 · 30L", price: 180, productSize: "34*28*68.3", material: "镀锌喷塑", packingRemark: "", logistics: logistics(1, "38.5*32.5*70.5", "", 0.088213) }
+];
 
 function regularOnlyPrices(sizeMap) {
   return prices(Object.entries(sizeMap).map(([size, price]) => [`size:${size}|softClose:standard`, price]));
@@ -442,6 +523,13 @@ const initialProducts = [
       { id: "120l", label: "120L", price: 0 },
       { id: "240l", label: "240L", price: 0 }
     ]
+  },
+  {
+    id: "price-list-products",
+    name: "价格表产品",
+    hint: "CLF / CLD / 烟柱 / 商用桶",
+    skipPackaging: true,
+    options: PRICE_LIST_DOC_OPTIONS
   },
   {
     id: "indoor-bin",
@@ -744,6 +832,7 @@ const elements = {
   mixedList: document.querySelector("#mixedList"),
   mixedEmpty: document.querySelector("#mixedEmpty"),
   resultQty: document.querySelector("#resultQty"),
+  productSize: document.querySelector("#productSize"),
   cartonSpec: document.querySelector("#cartonSpec"),
   cartonQty: document.querySelector("#cartonQty"),
   unitWeight: document.querySelector("#unitWeight"),
@@ -870,7 +959,11 @@ function normalizeMixedItem(item) {
     ...item,
     nested: Boolean(item.nested),
     productSize: item.productSize || productSizeFromName(item.name),
-    packagingSize: item.packagingSize || inferPackagingSizeFromName(item.name)
+    packagingSize: item.packagingSize || inferPackagingSizeFromName(item.name),
+    logistics: item.logistics ? {
+      ...item.logistics,
+      cartonMultiplier: item.logistics.cartonMultiplier || cartonMultiplierFromSpec(item.logistics.cartonSpec)
+    } : item.logistics
   };
   if (!normalized.name?.includes("感应垃圾桶")) return normalized;
   return {
@@ -880,7 +973,8 @@ function normalizeMixedItem(item) {
       cartonQty: 1,
       cartonSpec: "61*41*22.5",
       unitWeight: "7000g",
-      cbm: 0.0562725
+      cbm: 0.0562725,
+      cartonMultiplier: 1
     }
   };
 }
@@ -1011,7 +1105,7 @@ function isConfigGroupVisible(group) {
 
 function visibleConfigGroupsForSelections(option = currentOption(), selections = state.configSelections, product = currentProduct()) {
   const groups = Array.isArray(option.configGroups) ? option.configGroups : [];
-  if (product.id === "outdoor-bin") return groups.filter((group) => isConfigGroupVisibleForSelections(group, selections));
+  if (product.id === "outdoor-bin" || product.skipPackaging) return groups.filter((group) => isConfigGroupVisibleForSelections(group, selections));
   return [...groups, PACKAGING_GROUP].filter((group) => isConfigGroupVisibleForSelections(group, selections));
 }
 
@@ -1259,13 +1353,25 @@ function safeFilename(value) {
 }
 
 function parseCartonSpec(spec = "") {
-  const nums = String(spec).match(/\d+(?:\.\d+)?/g) || [];
+  const text = String(spec)
+    .replace(/^\s*\d+\s*个装/, "")
+    .replace(/\s+\d+\s*个装.*$/, "");
+  const nums = text.match(/\d+(?:\.\d+)?/g) || [];
   const [length, width, height] = nums.map(Number);
   return {
     length: Number.isFinite(length) ? length : "",
     width: Number.isFinite(width) ? width : "",
     height: Number.isFinite(height) ? height : ""
   };
+}
+
+function cartonMultiplierFromSpec(spec = "") {
+  const text = String(spec);
+  const nums = text.match(/\d+(?:\.\d+)?/g) || [];
+  if (nums.length < 4) return 1;
+  const last = Number(nums[nums.length - 1]);
+  if (!Number.isInteger(last) || last <= 1 || last > 10) return 1;
+  return new RegExp(`\\*\\s*${last}\\s*(只|个)?\\s*$`).test(text) ? last : 1;
 }
 
 function parseWeightKg(value = "") {
@@ -1585,6 +1691,7 @@ function volumeLabelFromName(name = "") {
 }
 
 function productSizeForSelections(product, option, selections = {}) {
+  if (option?.productSize) return option.productSize;
   if (product?.id === "indoor-bin") {
     if (["stainless-pedal", "painted", "bamboo-lid"].includes(option?.id)) {
       return INDOOR_PRODUCT_SIZES[selections.size] || "";
@@ -1628,6 +1735,7 @@ function packagingLabel(packagingId, nested = false) {
 }
 
 function englishDescription(name = "") {
+  const cleanName = String(name).replace(/^价格表产品\s*·\s*/, "");
   const size = volumeLabelFromName(name);
   const prefix = size ? `${Number.parseInt(size, 10)} Liter ` : "";
   if (name.includes("不锈钢脚踏垃圾桶")) return `${prefix}Stainless Steel Pedal Trash Can`;
@@ -1637,7 +1745,7 @@ function englishDescription(name = "") {
   if (name.includes("感应垃圾桶")) return "Sensor Trash Can";
   if (name.includes("马桶刷")) return `${name.includes("大号") ? "Large" : name.includes("小号") ? "Small" : ""} Toilet Brush`.trim();
   if (name.includes("户外垃圾桶")) return `${prefix}Outdoor Trash Bin`;
-  return name;
+  return cleanName;
 }
 
 function materialDescription(name = "") {
@@ -1879,6 +1987,7 @@ function currentPriceTextLanguage() {
 function defaultPriceTextProductName(languageId = currentPriceTextLanguageId()) {
   const product = currentProduct();
   const option = currentOption();
+  if (product.id === "price-list-products") return option.label;
   const names = PRICE_TEXT_LANGUAGES[languageId]?.names || PRICE_TEXT_LANGUAGES.pt.names;
   return names[`${product.id}|${option.id}`] || names[product.id] || option.label;
 }
@@ -2056,6 +2165,7 @@ function renderPriceTextBuilder() {
 }
 
 function addCurrentToMixed() {
+  const option = currentOption();
   const logisticsInfo = currentLogistics();
   if (!logisticsInfo?.cbm || !logisticsInfo?.cartonQty) {
     flashSaved("这个产品缺少外箱资料");
@@ -2068,6 +2178,8 @@ function addCurrentToMixed() {
     id,
     name: currentSelectionLabel(),
     productSize: currentProductSize(),
+    material: option.material || "",
+    packingRemark: option.packingRemark || "",
     quantity: result.quantity,
     unitPrice: result.unitPrice,
     packagingId: selectedPackagingId(),
@@ -2077,7 +2189,8 @@ function addCurrentToMixed() {
       cartonQty: logisticsInfo.cartonQty,
       cartonSpec: logisticsInfo.cartonSpec,
       unitWeight: logisticsInfo.unitWeight,
-      cbm: logisticsInfo.cbm
+      cbm: logisticsInfo.cbm,
+      cartonMultiplier: logisticsInfo.cartonMultiplier || cartonMultiplierFromSpec(logisticsInfo.cartonSpec)
     }
   });
   persistMixedItems();
@@ -2281,8 +2394,9 @@ function documentLines() {
     const dims = parseCartonSpec(line.logistics?.cartonSpec);
     const cartonQty = Number(line.logistics?.cartonQty) || 0;
     const cartonCbm = Number(line.logistics?.cbm) || 0;
+    const cartonMultiplier = Number(line.logistics?.cartonMultiplier) || cartonMultiplierFromSpec(line.logistics?.cartonSpec);
     const orderQty = line.quantity;
-    const cartonCount = cartonQty ? Math.ceil(orderQty / cartonQty) : 0;
+    const cartonCount = cartonQty ? (orderQty / cartonQty) * cartonMultiplier : 0;
     const container = currentContainer();
     const containerCapacity = cartonCbm && cartonQty ? (container.volume / cartonCbm) * cartonQty : 0;
     const perProductFob = fobInfoForLogistics(line.logistics, container);
@@ -2297,13 +2411,14 @@ function documentLines() {
       description: englishDescription(line.name),
       volume: volumeLabelFromName(line.name),
       productSize: line.productSize || productSizeFromName(line.name),
-      material: materialDescription(line.name),
+      material: line.material || materialDescription(line.name),
       finishing: finishingDescription(line.name),
-      packagingText: packagingLabel(line.packagingId, line.nested),
+      packagingText: line.packingRemark || packagingLabel(line.packagingId, line.nested),
       imageData: line.imageData || "",
       packagingId: line.packagingId,
       cartonQty,
       cartonSpec: line.logistics?.cartonSpec || "",
+      cartonMultiplier,
       length: dims.length,
       width: dims.width,
       height: dims.height,
@@ -3009,6 +3124,13 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
     const endRow = startRow + PACKING_DETAIL_ROW_COUNT - 1;
     const rmbPriceRow = startRow + 5;
     const fobRmbPriceRow = startRow + 6;
+    const cartonMultiplier = Number(line.cartonMultiplier) || 1;
+    const cartonCbmFormula = cartonMultiplier === 1
+      ? `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`
+      : `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000*${cartonMultiplier})`;
+    const cartonQtyFormula = cartonMultiplier === 1
+      ? `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`
+      : `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow}*${cartonMultiplier})`;
     const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
     const baseUnitRmb = Number(line.baseUnitRmb);
     const hasInitialFob = Number.isFinite(baseUnitRmb) && Number.isFinite(initialPerProductFob?.cost);
@@ -3036,11 +3158,11 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
         cells[6] = xlsxNumberCell(6, rowNumber, line.length, 5);
         cells[7] = xlsxNumberCell(7, rowNumber, line.width, 5);
         cells[8] = xlsxNumberCell(8, rowNumber, line.height, 5);
-        cells[9] = xlsxFormulaCell(9, rowNumber, `IF(OR(F${startRow}="",G${startRow}="",H${startRow}=""),"",F${startRow}*G${startRow}*H${startRow}/1000000)`, line.cartonCbm, 5);
+        cells[9] = xlsxFormulaCell(9, rowNumber, cartonCbmFormula, line.cartonCbm, 5);
         cells[10] = xlsxNumberCell(10, rowNumber, line.unitWeightKg === "" ? "" : line.unitWeightKg, 5);
         cells[11] = xlsxNumberCell(11, rowNumber, line.cartonWeightKg === "" ? "" : line.cartonWeightKg, 5);
         cells[12] = xlsxFormulaCell(12, rowNumber, `IFERROR(${containerVolumeFormula}/I${startRow}*E${startRow},"")`, line.containerCapacity, 5);
-        cells[13] = xlsxFormulaCell(13, rowNumber, `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`, line.cartonQty ? line.orderQty / line.cartonQty : "", 10);
+        cells[13] = xlsxFormulaCell(13, rowNumber, cartonQtyFormula, line.cartonCount, 10);
         cells[14] = xlsxNumberCell(14, rowNumber, line.orderQty, 10);
         cells[15] = xlsxFormulaCell(15, rowNumber, `IF(OR(N${startRow}="",D${startRow}=""),"",N${startRow}*D${startRow})`, initialFobUsd * line.orderQty, 9);
         cells[16] = xlsxFormulaCell(16, rowNumber, line.nested ? "0" : `IF(OR(N${startRow}="",E${startRow}="",I${startRow}=""),"",N${startRow}/E${startRow}*I${startRow})`, line.totalCbm, 9);
@@ -3051,7 +3173,7 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
 
   const totalRow = lines.length ? 3 + lines.length * PACKING_DETAIL_ROW_COUNT : 3;
   const sumRangeEnd = Math.max(3, totalRow - 1);
-  const totalCartonsByFormula = lines.reduce((sum, line) => sum + (line.cartonQty ? line.orderQty / line.cartonQty : 0), 0);
+  const totalCartonsByFormula = lines.reduce((sum, line) => sum + (Number(line.cartonCount) || 0), 0);
   const totalFobUsdByFormula = lines.reduce((sum, line) => {
     const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
     const baseUnitRmb = Number(line.baseUnitRmb);
@@ -3416,6 +3538,7 @@ function renderSummary() {
   elements.fobTotalUsd.textContent = result.fobTotalUsd === null ? "待填写" : formatUsd(result.fobTotalUsd);
   elements.containerUnits.textContent = result.fobUnits ? `${Math.floor(result.fobUnits).toLocaleString("zh-CN")} 件` : "待填写";
   elements.resultQty.textContent = String(result.quantity);
+  elements.productSize.textContent = currentProductSize() || "待填写";
   elements.cartonSpec.textContent = logisticsInfo?.cartonSpec || "待填写";
   elements.cartonQty.textContent = logisticsInfo?.cartonQty ? `${logisticsInfo.cartonQty} / 箱` : "待填写";
   elements.unitWeight.textContent = logisticsInfo?.unitWeight || "待填写";
@@ -3428,6 +3551,7 @@ function renderSummary() {
     `计价单价：${formatCny(result.unitCost)}`,
     `数量：${result.quantity}`,
     `包装/其他费用：${formatCny(result.extraCost)}`,
+    `产品尺寸：${currentProductSize() || "待填写"}`,
     `外箱尺寸：${logisticsInfo?.cartonSpec || "待填写"}`,
     `装箱量：${logisticsInfo?.cartonQty ? `${logisticsInfo.cartonQty} / 箱` : "待填写"}`,
     `单个重量：${logisticsInfo?.unitWeight || "待填写"}`,
