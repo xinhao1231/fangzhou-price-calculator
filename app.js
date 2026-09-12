@@ -1776,6 +1776,8 @@ function imageFileToDataUrl(file) {
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
         const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL("image/jpeg", 0.78));
       };
@@ -3567,6 +3569,7 @@ function renderSummary() {
   ].join("\n");
   renderPriceTextBuilder();
   renderMixedFob();
+  if (typeof renderSampleTotals === "function") renderSampleTotals();
 }
 
 function render() {
@@ -3585,7 +3588,7 @@ function exposeSavedData() {
     dataNode.hidden = true;
     document.body.append(dataNode);
   }
-  dataNode.textContent = JSON.stringify({ version: 11, products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings });
+  dataNode.textContent = JSON.stringify({ version: 11, products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings, sampleDraft: state.sampleDraft });
 }
 
 function bindInputs() {
@@ -3705,7 +3708,7 @@ function bindInputs() {
   });
 
   elements.exportData.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify({ products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings }, null, 2)], {
+    const blob = new Blob([JSON.stringify({ products: state.products, mixedItems: state.mixedItems, docSettings: state.docSettings, sampleDraft: state.sampleDraft }, null, 2)], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
@@ -3730,6 +3733,11 @@ function bindInputs() {
           }))
         : state.mixedItems;
       state.docSettings = { ...state.docSettings, ...(imported.docSettings || {}) };
+      if (imported.sampleDraft && typeof normalizeSampleDraft === "function") {
+        state.sampleDraft = normalizeSampleDraft(imported.sampleDraft);
+        persistSampleDraft();
+        syncSampleForm();
+      }
       state.productId = state.products[0].id;
       selectFirstOption(state.products[0]);
       syncUnitPrice();

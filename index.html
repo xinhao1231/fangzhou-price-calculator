@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260908-1">
+    <link rel="stylesheet" href="styles.css?v=20260912-1">
   </head>
   <body>
     <main class="app-shell">
@@ -26,6 +26,17 @@
               <h2>选择产品</h2>
             </div>
             <button class="icon-button" id="resetPrices" type="button" title="恢复模板价格">↺</button>
+          </div>
+          <div class="search-toolbar">
+            <label class="field search-field">
+              <span>搜索产品</span>
+              <input id="productSearch" type="search" placeholder="产品名称、型号或容量，例如：竹盖 5L、CLF20A" autocomplete="off" aria-controls="productSearchResults">
+            </label>
+          </div>
+          <div id="productSearchResults" class="search-results" hidden>
+            <p id="searchResultCount" class="search-count" role="status"></p>
+            <div id="searchResultList" class="search-result-list"></div>
+            <button id="showMoreSearch" class="secondary-button" type="button" hidden>显示更多</button>
           </div>
           <div class="product-grid" id="productGrid"></div>
         </section>
@@ -47,6 +58,10 @@
               <p class="eyebrow">第 3 步</p>
               <h2>填写并计算</h2>
             </div>
+            <label class="checkbox-row total-fob-toggle">
+              <input id="includeFob" type="checkbox">
+              <span>总价计入FOB</span>
+            </label>
           </div>
 
           <form class="form-grid" id="calculatorForm">
@@ -66,7 +81,7 @@
               <span>包装 / 其他费用</span>
               <input id="extraCost" inputmode="decimal" min="0" step="0.01" type="number" value="0">
             </label>
-            <label class="field">
+            <label class="field exchange-field">
               <span>汇率（人民币 / 美元）</span>
               <div class="exchange-control">
                 <input id="exchangeRate" inputmode="decimal" min="0.1" step="0.0001" type="number" value="7.20">
@@ -90,18 +105,12 @@
                 <option value="yiwu">义乌（40HQ ¥2000）</option>
               </select>
             </label>
-            <label class="field check-field">
-              <span>主总价</span>
-              <label class="checkbox-row">
-                <input id="includeFob" type="checkbox">
-                <span>计入FOB</span>
-              </label>
-            </label>
           </form>
 
-          <div class="actions">
+          <div class="actions calculator-actions">
             <button class="primary-button" id="savePrice" type="button">保存当前单价</button>
             <button class="secondary-button" id="addMixedItem" type="button">加入混装</button>
+            <button class="secondary-button" id="quickAddSample" type="button">加入样品单</button>
             <button class="secondary-button" id="copyQuote" type="button">复制中文明细</button>
           </div>
         </section>
@@ -110,12 +119,16 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">第 4 步</p>
-              <h2>生成PI和装箱单</h2>
+              <h2>生成单据</h2>
             </div>
           </div>
 
+          <div class="document-tabs" role="tablist" aria-label="单据类型">
+            <button id="orderDocumentTab" role="tab" aria-selected="true" aria-controls="orderDocumentActions" type="button">PI / 装箱单</button>
+            <button id="sampleDocumentTab" role="tab" aria-selected="false" aria-controls="sampleDocumentPanel" tabindex="-1" type="button">样品单 <span id="sampleItemCount">0</span></button>
+          </div>
           <form class="form-grid document-grid" id="documentForm">
-            <label class="field">
+            <label class="field order-only">
               <span>PI号</span>
               <input id="docPiNo" type="text">
             </label>
@@ -147,40 +160,62 @@
               <span>出口代理</span>
               <input id="docExportAgent" type="text">
             </label>
-            <label class="field">
+            <label class="field order-only">
               <span>装运港</span>
               <input id="docPort" type="text">
             </label>
-            <label class="field">
+            <label class="field order-only">
               <span>定金比例</span>
               <input id="docDepositRate" inputmode="decimal" min="0" max="100" step="1" type="number">
             </label>
-            <label class="field">
+            <label class="field order-only">
               <span>单据FOB模式</span>
               <select id="docFobMode">
                 <option value="per-product">拼柜模式：显示单品FOB</option>
                 <option value="mixed-share">整柜分摊：按CBM分摊</option>
               </select>
             </label>
-            <label class="field wide-field">
+            <label class="field wide-field order-only">
               <span>付款方式</span>
               <textarea id="docPayment" rows="2"></textarea>
             </label>
-            <label class="field wide-field">
+            <label class="field wide-field order-only">
               <span>出货时间</span>
               <textarea id="docShipment" rows="2"></textarea>
             </label>
-            <label class="field wide-field">
+            <label class="field wide-field order-only">
               <span>包装说明</span>
               <textarea id="docPacking" rows="3"></textarea>
             </label>
           </form>
 
-          <div class="actions document-actions">
+          <div class="actions document-actions" id="orderDocumentActions" role="tabpanel" aria-labelledby="orderDocumentTab">
             <button class="primary-button" id="downloadPi" type="button">下载PI Excel</button>
             <button class="secondary-button" id="printPi" type="button">打印PI/PDF</button>
             <button class="secondary-button" id="downloadPackingList" type="button">下载装箱单Excel</button>
           </div>
+          <section id="sampleDocumentPanel" role="tabpanel" aria-labelledby="sampleDocumentTab" hidden>
+            <div class="form-grid sample-settings">
+              <label class="field"><span>样品单号</span><input id="sampleNo" type="text"></label>
+              <label class="field"><span>单据币种</span><select id="sampleCurrency"><option value="USD">USD 美元</option><option value="CNY">CNY 人民币</option></select></label>
+              <label class="field"><span>快递公司</span><input id="sampleCarrier" type="text" placeholder="DHL / FedEx / UPS"></label>
+              <label class="field"><span>快递费（人民币）</span><input id="sampleFreight" type="number" inputmode="decimal" min="0" step="0.01" value="0"></label>
+              <label class="field wide-field"><span>样品付款方式</span><input id="samplePayment" type="text"></label>
+              <label class="field wide-field"><span>样品备注</span><textarea id="sampleNotes" rows="2"></textarea></label>
+            </div>
+            <div class="sample-toolbar">
+              <h3>样品明细</h3>
+              <button id="addSampleItem" class="secondary-button" type="button">加入当前产品</button>
+            </div>
+            <p id="sampleEmpty" class="empty-state">暂无样品</p>
+            <div id="sampleList" class="sample-list"></div>
+            <dl class="sample-totals"><div><dt>样品金额</dt><dd id="sampleSubtotal">$0.00</dd></div><div><dt>快递费</dt><dd id="sampleFreightTotal">$0.00</dd></div><div><dt>总计</dt><dd id="sampleGrandTotal">$0.00</dd></div></dl>
+            <div class="actions document-actions">
+              <button id="downloadSample" class="primary-button" type="button">下载样品单 Excel</button>
+              <button id="printSample" class="secondary-button" type="button">打印样品单 / PDF</button>
+              <button id="downloadSampleTemplate" class="secondary-button" type="button">下载空白模板</button>
+            </div>
+          </section>
         </section>
       </section>
 
@@ -319,7 +354,7 @@
           <textarea class="price-text-output" id="priceTextOutput" readonly rows="8"></textarea>
         </section>
 
-        <div class="quote-box" id="quoteText"></div>
+        <details class="quote-details"><summary>中文报价明细</summary><div class="quote-box" id="quoteText"></div></details>
 
         <div class="data-tools">
           <button class="secondary-button" id="exportData" type="button">导出价格数据</button>
@@ -331,6 +366,7 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260908-1"></script>
+    <script src="app.js?v=20260912-1"></script>
+    <script src="workspace.js?v=20260912-1"></script>
   </body>
 </html>
