@@ -7,7 +7,7 @@
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css?v=20260921-1">
-    <link rel="stylesheet" href="chatbot.css?v=20260921-3">
+    <link rel="stylesheet" href="chatbot.css?v=20260921-7">
   </head>
   <body>
     <main class="app-shell">
@@ -17,7 +17,7 @@
             <p class="eyebrow">Yongkang Fangzhou</p>
             <h1>产品价格计算器</h1>
           </div>
-          <div class="topbar-tools"><button id="openProductChatTop" class="chat-top-entry" type="button"><span class="chat-ai-mark">AI</span>方舟产品助手</button><div class="status-pill" id="saveStatus">已自动保存</div></div>
+          <div class="topbar-tools"><a id="openProductChatTop" class="chat-top-entry" href="#assistant"><span class="chat-ai-mark">AI</span>方舟产品助手</a><div class="status-pill" id="saveStatus">已自动保存</div></div>
         </header>
 
         <section class="panel product-panel" aria-label="选择产品">
@@ -367,10 +367,10 @@
       </aside>
     </main>
 
-    <button id="openProductChat" class="chat-launcher" type="button" aria-haspopup="dialog" aria-controls="productChat"><span class="chat-ai-mark">AI</span><span>问问产品助手<small>价格 · 看图 · FOB</small></span></button>
-    <dialog id="productChat" class="product-chat" aria-labelledby="chatTitle">
+    <main id="productChat" class="product-chat" aria-labelledby="chatTitle" hidden>
       <aside class="chat-sidebar">
         <div class="chat-brand"><span class="chat-ai-mark">AI</span><strong>方舟助手</strong></div>
+        <a href="#calculator" class="chat-back-link"><img class="chat-icon" src="chat-icons/arrow-left.svg" alt="">返回价格计算器</a>
         <button id="sidebarNewChat" class="secondary-button" type="button"><img class="chat-icon" src="chat-icons/square-pen.svg" alt="">开启新对话</button>
         <p class="chat-sidebar-label">本次打开的对话</p>
         <nav id="chatThreads" aria-label="聊天记录"></nav>
@@ -378,11 +378,11 @@
       </aside>
       <section class="chat-main">
       <header class="chat-header">
-        <div><h2 id="chatTitle">方舟产品助手</h2><span>DeepSeek · 产品报价</span></div>
+        <div><h2 id="chatTitle">方舟产品助手</h2><span id="chatHeaderIdentity">DeepSeek · 产品报价</span></div>
         <div class="chat-header-actions">
           <button id="newChat" class="text-button chat-icon-button" type="button" title="新对话" aria-label="新对话"><img class="chat-icon" src="chat-icons/square-pen.svg" alt=""></button>
           <button id="toggleChatSettings" class="text-button" type="button" aria-expanded="false" aria-controls="chatSettings">账号 / 设置</button>
-          <button id="closeProductChat" class="chat-close" type="button" aria-label="关闭聊天" title="关闭"><img class="chat-icon" src="chat-icons/x.svg" alt=""></button>
+          <a id="closeProductChat" class="chat-close" href="#calculator" aria-label="返回价格计算器" title="返回价格计算器"><img class="chat-icon" src="chat-icons/arrow-left.svg" alt=""></a>
         </div>
       </header>
       <label class="chat-mobile-threads" id="chatMobileThreadRow" hidden><span class="visually-hidden">选择对话</span><select id="chatMobileThreads" aria-label="选择对话"></select></label>
@@ -390,6 +390,7 @@
         <div class="chat-access-tabs" role="group" aria-label="连接方式"><button id="sharedAccessTab" type="button" aria-pressed="true">授权账号</button><button id="personalAccessTab" type="button" aria-pressed="false">个人密钥</button></div>
         <div id="sharedAccountView">
           <p id="chatServerState" class="chat-account-note"></p>
+          <button id="chatCheckConnection" class="secondary-button" type="button">检测连接</button>
           <form id="chatLoginForm" class="chat-account-form">
             <label class="field"><span>账号</span><input id="chatUsername" autocomplete="username" autocapitalize="none" required pattern="[a-zA-Z0-9_-]{3,32}"></label>
             <label class="field"><span>密码</span><input id="chatPassword" type="password" autocomplete="current-password" required maxlength="128"></label>
@@ -432,11 +433,11 @@
         </div>
       </form>
       </section>
-    </dialog>
+    </main>
     <script src="app.js?v=20260921-1"></script>
     <script src="workspace.js?v=20260921-1"></script>
     <script src="chat-config.js?v=20260921-4"></script>
-    <script src="chat-account.js?v=20260921-3"></script>
-    <script src="chatbot.js?v=20260921-3"></script>
+    <script src="chat-account.js?v=20260921-7"></script>
+    <script src="chatbot.js?v=20260921-7"></script>
   </body>
 </html>

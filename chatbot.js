@@ -198,7 +198,7 @@ const productChatData = (() => {
 })();
 
 (() => {
-  const ui = Object.fromEntries(["openProductChat", "productChat", "closeProductChat", "toggleChatSettings", "chatSettings",
+  const ui = Object.fromEntries(["productChat", "closeProductChat", "toggleChatSettings", "chatSettings",
     "chatApiKey", "chatModel", "forgetChatKey", "newChat", "chatMessages", "chatSuggestions", "chatStatus", "chatForm", "chatInput", "chatSend", "chatStop",
     "chatAttachment", "chatAttachmentPreview", "chatAttachmentName", "removeChatImage", "chooseChatImage", "chatImageFile"].map((id) => [id, document.getElementById(id)]));
   let apiKey = "";
@@ -250,7 +250,9 @@ const productChatData = (() => {
     accountPanel.hidden = !open;
     ui.chatSettings.hidden = !open || chatAccount.mode !== "personal";
     ui.toggleChatSettings.setAttribute("aria-expanded", String(open));
-    ui.toggleChatSettings.textContent = open ? "返回对话" : "账号 / 设置";
+    const accountName = chatAccount.mode === "shared" ? chatAccount.username : "";
+    ui.toggleChatSettings.textContent = open ? "返回对话" : accountName || (chatAccount.mode === "shared" ? "登录 / 设置" : "账号 / 设置");
+    ui.toggleChatSettings.title = open ? "返回对话" : accountName ? `${accountName} · 账号设置` : "账号设置";
     ui.productChat.classList.toggle("chat-show-account", open);
     if (open && chatAccount.ready) chatAccount.refresh();
   }
@@ -551,19 +553,46 @@ const productChatData = (() => {
     }
   }
 
-  function openChat() {
-    ui.productChat.showModal();
-    settings(false);
-    ui.chatInput.focus();
-    status(ready() ? "已连接，随时提问" : chatAccount.mode === "shared" ? "发送前请登录授权账号" : "发送前请在账号 / 设置中连接");
+  const calculatorPage = document.querySelector(".app-shell");
+  const calculatorTitle = document.title;
+  let calculatorScroll = 0;
+  function renderPage() {
+    const inChat = location.hash === "#assistant";
+    if (inChat === !ui.productChat.hidden) return;
+    if (inChat) calculatorScroll = window.scrollY;
+    document.activeElement?.blur();
+    calculatorPage.hidden = inChat;
+    ui.productChat.hidden = !inChat;
+    document.body.classList.toggle("chat-page", inChat);
+    document.title = inChat ? "方舟产品助手" : calculatorTitle;
+    if (inChat) {
+      window.scrollTo(0, 0);
+      settings(false);
+      resizeChatViewport();
+      if (matchMedia("(pointer:fine)").matches) ui.chatInput.focus({ preventScroll: true });
+      else ui.closeProductChat.focus({ preventScroll: true });
+      status(ready() ? "已连接，随时提问" : chatAccount.mode === "shared" ? "发送前请登录授权账号" : "发送前请在账号 / 设置中连接");
+    } else {
+      controller?.abort();
+      window.scrollTo(0, calculatorScroll);
+      document.getElementById("openProductChatTop").focus({ preventScroll: true });
+    }
   }
-  ui.openProductChat.addEventListener("click", openChat);
-  document.getElementById("openProductChatTop").addEventListener("click", openChat);
+  // Hash routes work on both static hosts and local HTML without server rewrites.
+  for (const link of document.querySelectorAll('a[href="#assistant"], a[href="#calculator"]')) link.addEventListener("click", (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (location.hash !== link.hash) window.history.pushState(null, "", link.hash);
+    renderPage();
+  });
+  window.addEventListener("popstate", renderPage);
+  window.addEventListener("hashchange", renderPage);
   function resizeChatViewport() {
     const viewport = window.visualViewport;
     if (!viewport) return;
     ui.productChat.style.setProperty("--chat-viewport-height", `${viewport.height}px`);
     ui.productChat.style.setProperty("--chat-viewport-top", `${viewport.offsetTop}px`);
+    ui.productChat.classList.toggle("chat-compact", viewport.height < 520 && (innerWidth <= 800 || matchMedia("(pointer:coarse)").matches));
   }
   window.visualViewport?.addEventListener("resize", resizeChatViewport);
   window.visualViewport?.addEventListener("scroll", resizeChatViewport);
@@ -579,8 +608,6 @@ const productChatData = (() => {
     settings(true);
     status(ready() ? "账号已连接，可以开始提问" : "请选择连接方式并登录");
   });
-  ui.closeProductChat.addEventListener("click", () => ui.productChat.close());
-  ui.productChat.addEventListener("close", () => { controller?.abort(); ui.openProductChat.focus(); });
   ui.toggleChatSettings.addEventListener("click", () => settings(accountPanel.hidden));
   ui.chatSettings.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -620,4 +647,5 @@ const productChatData = (() => {
   ui.chatStop.addEventListener("click", () => controller?.abort());
   ui.newChat.addEventListener("click", () => { if (!controller) { newThread(); settings(false); status(ready() ? "已开始新对话" : "请先连接账号或个人密钥"); } });
   newThread();
+  renderPage();
 })();
