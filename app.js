@@ -1126,8 +1126,8 @@ function configPriceKey() {
   return configPriceKeyForSelections(option, state.configSelections);
 }
 
-function configPriceKeyForSelections(option, selections) {
-  return visibleConfigGroupsForSelections(option, selections)
+function configPriceKeyForSelections(option, selections, product = currentProduct()) {
+  return visibleConfigGroupsForSelections(option, selections, product)
     .filter((group) => group.affectsPrice !== false)
     .map((group) => `${group.id}:${selections[group.id] || group.items[0].id}`)
     .join("|");
@@ -1138,8 +1138,8 @@ function logisticsPriceKey() {
   return logisticsPriceKeyForSelections(option, state.configSelections);
 }
 
-function logisticsPriceKeyForSelections(option, selections) {
-  return visibleConfigGroupsForSelections(option, selections)
+function logisticsPriceKeyForSelections(option, selections, product = currentProduct()) {
+  return visibleConfigGroupsForSelections(option, selections, product)
     .filter((group) => group.affectsLogistics !== false)
     .map((group) => `${group.id}:${selections[group.id] || group.items[0].id}`)
     .join("|");
@@ -1150,8 +1150,8 @@ function currentLogistics() {
   return logisticsForSelections(option, state.configSelections);
 }
 
-function logisticsForSelections(option, selections) {
-  return option.logisticsByKey?.[logisticsPriceKeyForSelections(option, selections)] || option.logistics || null;
+function logisticsForSelections(option, selections, product = currentProduct()) {
+  return option.logisticsByKey?.[logisticsPriceKeyForSelections(option, selections, product)] || option.logistics || null;
 }
 
 function directSavedPrice(option = currentOption(), key = configPriceKey()) {
@@ -1159,30 +1159,30 @@ function directSavedPrice(option = currentOption(), key = configPriceKey()) {
   return option.prices[key];
 }
 
-function configPriceKeyWithOverrides(option, selections, overrides = {}) {
+function configPriceKeyWithOverrides(option, selections, overrides = {}, product = currentProduct()) {
   const nextSelections = { ...selections, ...overrides };
-  return configPriceKeyForSelections(option, nextSelections);
+  return configPriceKeyForSelections(option, nextSelections, product);
 }
 
-function savedPriceForSelections(option = currentOption(), selections = state.configSelections) {
-  if (visibleConfigGroupsForSelections(option, selections).length > 0) {
-    const savedPrice = directSavedPrice(option, configPriceKeyForSelections(option, selections));
+function savedPriceForSelections(option = currentOption(), selections = state.configSelections, product = currentProduct()) {
+  if (visibleConfigGroupsForSelections(option, selections, product).length > 0) {
+    const savedPrice = directSavedPrice(option, configPriceKeyForSelections(option, selections, product));
     if (savedPrice !== null) return savedPrice;
 
     if (option.id === "bamboo-lid" && selections.pattern === "embossed" && selections.softClose === "soft-close") {
-      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain", softClose: "standard" });
+      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain", softClose: "standard" }, product);
       const basePrice = directSavedPrice(option, baseKey);
       if (basePrice !== null) return basePrice + 2;
     }
 
     if (selections.softClose === "soft-close") {
-      const baseKey = configPriceKeyWithOverrides(option, selections, { softClose: "standard" });
+      const baseKey = configPriceKeyWithOverrides(option, selections, { softClose: "standard" }, product);
       const basePrice = directSavedPrice(option, baseKey);
       if (basePrice !== null) return basePrice + 1;
     }
 
     if (option.id === "bamboo-lid" && selections.pattern === "embossed") {
-      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain" });
+      const baseKey = configPriceKeyWithOverrides(option, selections, { pattern: "plain" }, product);
       const basePrice = directSavedPrice(option, baseKey);
       if (basePrice !== null) return basePrice + 1;
     }
@@ -2201,8 +2201,11 @@ function addCurrentToMixed() {
 }
 
 function calculateMixedFob(mode = state.mixedFobMode || "mixed-share") {
-  const container = currentContainer();
-  const lines = state.mixedItems.map((rawItem) => {
+  return calculateMixedFobForItems(state.mixedItems, currentContainer(), mode);
+}
+
+function calculateMixedFobForItems(items, container, mode = "mixed-share") {
+  const lines = items.map((rawItem) => {
     const item = normalizeMixedItem(rawItem);
     const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
     const cartonQty = Number(item.logistics?.cartonQty) || 0;

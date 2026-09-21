@@ -6,7 +6,8 @@
     <meta name="theme-color" content="#1f4e5f">
     <title>方舟产品价格计算器</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260912-1">
+    <link rel="stylesheet" href="styles.css?v=20260921-1">
+    <link rel="stylesheet" href="chatbot.css?v=20260921-3">
   </head>
   <body>
     <main class="app-shell">
@@ -16,7 +17,7 @@
             <p class="eyebrow">Yongkang Fangzhou</p>
             <h1>产品价格计算器</h1>
           </div>
-          <div class="status-pill" id="saveStatus">已自动保存</div>
+          <div class="topbar-tools"><button id="openProductChatTop" class="chat-top-entry" type="button"><span class="chat-ai-mark">AI</span>方舟产品助手</button><div class="status-pill" id="saveStatus">已自动保存</div></div>
         </header>
 
         <section class="panel product-panel" aria-label="选择产品">
@@ -366,7 +367,76 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260912-1"></script>
-    <script src="workspace.js?v=20260912-1"></script>
+    <button id="openProductChat" class="chat-launcher" type="button" aria-haspopup="dialog" aria-controls="productChat"><span class="chat-ai-mark">AI</span><span>问问产品助手<small>价格 · 看图 · FOB</small></span></button>
+    <dialog id="productChat" class="product-chat" aria-labelledby="chatTitle">
+      <aside class="chat-sidebar">
+        <div class="chat-brand"><span class="chat-ai-mark">AI</span><strong>方舟助手</strong></div>
+        <button id="sidebarNewChat" class="secondary-button" type="button"><img class="chat-icon" src="chat-icons/square-pen.svg" alt="">开启新对话</button>
+        <p class="chat-sidebar-label">本次打开的对话</p>
+        <nav id="chatThreads" aria-label="聊天记录"></nav>
+        <button id="sidebarAccount" class="chat-account-entry" type="button"><span id="chatAccountLabel">账号与连接</span><small id="chatAccountState">未登录</small></button>
+      </aside>
+      <section class="chat-main">
+      <header class="chat-header">
+        <div><h2 id="chatTitle">方舟产品助手</h2><span>DeepSeek · 产品报价</span></div>
+        <div class="chat-header-actions">
+          <button id="newChat" class="text-button chat-icon-button" type="button" title="新对话" aria-label="新对话"><img class="chat-icon" src="chat-icons/square-pen.svg" alt=""></button>
+          <button id="toggleChatSettings" class="text-button" type="button" aria-expanded="false" aria-controls="chatSettings">账号 / 设置</button>
+          <button id="closeProductChat" class="chat-close" type="button" aria-label="关闭聊天" title="关闭"><img class="chat-icon" src="chat-icons/x.svg" alt=""></button>
+        </div>
+      </header>
+      <label class="chat-mobile-threads" id="chatMobileThreadRow" hidden><span class="visually-hidden">选择对话</span><select id="chatMobileThreads" aria-label="选择对话"></select></label>
+      <section id="chatAccountPanel" class="chat-account-panel" hidden>
+        <div class="chat-access-tabs" role="group" aria-label="连接方式"><button id="sharedAccessTab" type="button" aria-pressed="true">授权账号</button><button id="personalAccessTab" type="button" aria-pressed="false">个人密钥</button></div>
+        <div id="sharedAccountView">
+          <p id="chatServerState" class="chat-account-note"></p>
+          <form id="chatLoginForm" class="chat-account-form">
+            <label class="field"><span>账号</span><input id="chatUsername" autocomplete="username" autocapitalize="none" required pattern="[a-zA-Z0-9_-]{3,32}"></label>
+            <label class="field"><span>密码</span><input id="chatPassword" type="password" autocomplete="current-password" required maxlength="128"></label>
+            <button class="primary-button" type="submit">登录</button>
+          </form>
+          <div id="chatSignedIn" hidden><p id="chatUserSummary"></p><button id="chatLogout" class="secondary-button" type="button">退出登录</button>
+            <details><summary>修改我的密码</summary><form id="chatPasswordForm" class="chat-account-form"><label class="field"><span>原密码</span><input name="currentPassword" type="password" autocomplete="current-password" required></label><label class="field"><span>新密码（至少12位）</span><input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><button class="primary-button" type="submit">更新密码</button></form></details>
+          </div>
+          <section id="chatAdminPanel" hidden><h3>授权用户</h3><form id="chatCreateUser" class="chat-account-form"><label class="field"><span>新账号</span><input name="username" required pattern="[a-zA-Z0-9_-]{3,32}" autocomplete="off"></label><label class="field"><span>初始密码（至少12位）</span><input name="password" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><label class="field"><span>每日调用上限</span><input name="dailyLimit" type="number" value="200" min="1" max="2000" required></label><button class="primary-button" type="submit">创建账号</button></form><p class="chat-account-note">一次提问可能调用 AI 多次。额度为调用次数，不是提问次数。</p><div id="chatUserList"></div></section>
+          <details id="chatSetupDetails"><summary>首次配置管理员</summary><form id="chatSetupForm" class="chat-account-form"><label class="field"><span>初始化口令</span><input name="setupToken" type="password" required autocomplete="off"></label><label class="field"><span>管理员账号</span><input name="username" required pattern="[a-zA-Z0-9_-]{3,32}" autocomplete="username"></label><label class="field"><span>管理员密码（至少12位）</span><input name="password" type="password" minlength="12" maxlength="128" required autocomplete="new-password"></label><button type="submit" class="primary-button">创建管理员</button></form></details>
+        </div>
+        <p id="chatAccountStatus" role="status"></p>
+      </section>
+      <form id="chatSettings" class="chat-settings" hidden>
+        <label class="field"><span>DeepSeek API Key</span><input id="chatApiKey" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="输入你的 API Key"></label>
+        <label class="field"><span>模型</span><select id="chatModel"><option value="deepseek-flash">DeepSeek Flash</option><option value="deepseek-v4-pro">DeepSeek V4 Pro</option></select></label>
+        <p>密钥仅保留在当前页面，刷新后需重新输入。提问、主动上传的图片和相关产品数据会发送给 DeepSeek，按你的 API 账户计费。含图片的对话使用 Flash。</p>
+        <div class="chat-settings-actions"><button class="primary-button" type="submit">应用设置</button><button id="forgetChatKey" class="secondary-button" type="button">清除密钥</button><a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">获取 API Key</a></div>
+      </form>
+      <div id="chatWelcome" class="chat-welcome"><span class="chat-ai-mark">AI</span><h3>今天想了解哪款产品？</h3></div>
+      <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+      <div id="chatSuggestions" class="chat-suggestions">
+        <button type="button">当前产品单价和每个CBM是多少？</button>
+        <button type="button">5L不锈钢脚踏垃圾桶有哪些价格？</button>
+        <button type="button">对比当前混装单的拼柜和整柜FOB</button>
+      </div>
+      <p id="chatStatus" class="chat-status" role="status">尚未设置 API Key</p>
+      <form id="chatForm" class="chat-compose">
+        <label class="visually-hidden" for="chatInput">你的问题</label>
+        <div id="chatAttachment" class="chat-attachment" hidden>
+          <img id="chatAttachmentPreview" alt="待发送的产品图片">
+          <span id="chatAttachmentName"></span>
+          <button id="removeChatImage" class="chat-close" type="button" title="移除图片" aria-label="移除图片"><img class="chat-icon" src="chat-icons/x.svg" alt=""></button>
+        </div>
+        <textarea id="chatInput" rows="2" maxlength="3000" placeholder="问价格、CBM，或上传产品图片…"></textarea>
+        <div class="chat-compose-actions">
+          <button id="chooseChatImage" class="secondary-button chat-upload" type="button" title="上传图片" aria-label="上传图片"><img class="chat-icon" src="chat-icons/paperclip.svg" alt=""><span>图片</span></button>
+          <input id="chatImageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" hidden>
+          <button id="chatStop" class="secondary-button chat-icon-button" type="button" title="停止回答" aria-label="停止回答" hidden><img class="chat-icon" src="chat-icons/square.svg" alt=""></button><button id="chatSend" class="primary-button chat-icon-button" type="submit" title="发送" aria-label="发送"><img class="chat-icon" src="chat-icons/arrow-up.svg" alt=""></button>
+        </div>
+      </form>
+      </section>
+    </dialog>
+    <script src="app.js?v=20260921-1"></script>
+    <script src="workspace.js?v=20260921-1"></script>
+    <script src="chat-config.js?v=20260921-3"></script>
+    <script src="chat-account.js?v=20260921-3"></script>
+    <script src="chatbot.js?v=20260921-3"></script>
   </body>
 </html>
