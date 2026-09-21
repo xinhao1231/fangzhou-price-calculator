@@ -1,12 +1,28 @@
 const chatAccount = (() => {
   const $ = (id) => document.getElementById(id);
   const base = (window.FANGZHOU_CHAT_CONFIG?.apiBase || "").replace(/\/$/, "");
+  const sessionKey = `fangzhou-chat-session:${base}`;
   let token = "";
   let user = null;
+  let expiresAt = 0;
   let mode = base ? "shared" : "personal";
   let pending = false;
   const notice = (text) => { $("chatAccountStatus").textContent = text; };
-  function changed() { window.dispatchEvent(new Event("chat-account-change")); }
+  function changed(reason = "change") { window.dispatchEvent(new CustomEvent("chat-account-change", { detail: { reason } })); }
+  function clearSession() {
+    token = ""; user = null; expiresAt = 0;
+    try { sessionStorage.removeItem(sessionKey); } catch { /* Storage may be unavailable in private browsing. */ }
+  }
+  function storeSession() {
+    try { sessionStorage.setItem(sessionKey, JSON.stringify({ token, expiresAt })); }
+    catch { notice("当前浏览器不允许保存登录状态，刷新后需重新登录。"); }
+  }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(sessionKey) || "null");
+    if (base && /^[a-f0-9]{64}$/.test(saved?.token) && Number.isFinite(saved.expiresAt) && saved.expiresAt > Date.now() / 1000) {
+      token = saved.token; expiresAt = saved.expiresAt;
+    } else sessionStorage.removeItem(sessionKey);
+  } catch { clearSession(); }
   function render() {
     if (!user) {
       $("chatUserList").replaceChildren();
@@ -21,7 +37,7 @@ const chatAccount = (() => {
     $("chatSetupDetails").hidden = Boolean(user) || !base;
     $("chatServerState").textContent = base ? "授权账号使用管理员的共享额度。问题、上传图片和相关产品资料会发送给 DeepSeek。" : "共享账号服务尚未部署。配置完成后，管理员可以在这里授权用户。当前仍可使用个人密钥。";
     $("chatAccountLabel").textContent = user?.username || "账号与连接";
-    $("chatAccountState").textContent = user ? (user.role === "admin" ? "管理员" : "已授权") : "未登录";
+    $("chatAccountState").textContent = user ? (user.role === "admin" ? "管理员" : "已授权") : token ? "登录连接待恢复" : "未登录";
     const identity = mode === "shared" ? user?.username : null;
     $("chatHeaderIdentity").textContent = identity ? `${identity} · ${user.role === "admin" ? "管理员" : "已授权"}` : mode === "personal" ? "个人密钥 · 产品报价" : "DeepSeek · 产品报价";
     $("chatHeaderIdentity").title = identity || "";
@@ -30,6 +46,7 @@ const chatAccount = (() => {
     if (!base) throw new Error("共享账号服务尚未部署。");
     if (!/^https:\/\//.test(base) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(base)) throw new Error("账号服务必须使用HTTPS安全连接。");
     const abort = new AbortController();
+    const requestToken = ["/health", "/login", "/setup"].includes(path) ? "" : token;
     const relayAbort = () => abort.abort();
     if (options.signal?.aborted) abort.abort();
     else options.signal?.addEventListener("abort", relayAbort, { once: true });
@@ -40,7 +57,7 @@ const chatAccount = (() => {
       let response;
       try {
         response = await fetch(`${base}/api${path}`, { method: options.method || "GET", credentials: "omit", referrerPolicy: "no-referrer",
-          headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(token && path !== "/health" ? { Authorization: `Bearer ${token}` } : {}) },
+          headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(requestToken ? { Authorization: `Bearer ${requestToken}` } : {}) },
           body: options.body ? JSON.stringify(options.body) : undefined, signal: abort.signal });
       } catch (error) {
         if (options.signal?.aborted) throw error;
@@ -49,9 +66,9 @@ const chatAccount = (() => {
       }
       let data;
       try { data = await response.json(); }
-      catch { throw new Error(timedOut ? "账号服务响应超时，请稍后重试。" : "账号服务返回内容异常，请联系管理员检查后台地址。"); }
+      catch { throw new Error(timedOut || [502, 503, 504].includes(response.status) ? "后台暂时无法响应或请求超时，登录状态未清除。请稍后重试；AI请求可能已经计次，不会自动重发。" : "账号服务返回内容异常，请联系管理员检查后台地址和转发配置。"); }
       if (!response.ok) {
-        if (response.status === 401 && token) { token = ""; user = null; render(); changed(); }
+        if (response.status === 401 && requestToken && token === requestToken) { clearSession(); render(); changed(); }
         throw new Error(data.error || `账号服务请求失败（${response.status}），请稍后重试。`);
       }
       return data;
@@ -62,7 +79,9 @@ const chatAccount = (() => {
   }
   async function refresh() {
     if (!token) return;
+    const refreshingToken = token;
     const result = await request("/me");
+    if (token !== refreshingToken) return;
     user = result.user;
     $("chatUserSummary").textContent = `${user.username} · 今日调用 ${result.used} / ${user.dailyLimit}`;
     render();
@@ -104,10 +123,11 @@ const chatAccount = (() => {
         const save = document.createElement("button"); save.type = "submit"; save.className = "primary-button"; save.textContent = "保存";
         form.append(save);
         form.addEventListener("submit", (event) => { event.preventDefault(); action(async () => {
+          const passwordChanged = !ownAdmin && Boolean(password.value);
           await request(`/users/${account.id}`, { method: "PATCH", body: { dailyLimit: Number(limit.value), ...(!ownAdmin && password.value ? { password: password.value } : {}) } });
           password.value = "";
           if (ownAdmin) { await refresh(); notice("我的每日调用上限已更新，立即生效；今日已用次数不变。"); }
-          else { await listUsers(); notice("已保存，请让该用户重新登录。"); }
+          else { await listUsers(); notice(passwordChanged ? "密码已重置，请让该用户重新登录。" : "每日调用上限已更新，立即生效，无需重新登录。"); }
         }); });
         edit.append(summary, form);
         if (!ownAdmin) row.append(toggle);
@@ -124,6 +144,7 @@ const chatAccount = (() => {
   }
   $("chatCheckConnection").addEventListener("click", () => action(async () => {
     const result = await request("/health");
+    if (token) { await refresh(); changed("restored"); }
     notice(result.ready ? "连接检测通过，当前浏览器能访问后台。若登录仍失败，请记录登录时的具体提示。" : "后台可以连接，但共享密钥或数据库配置尚未完成，请联系管理员。");
   }));
   for (const [id, value] of [["sharedAccessTab", "shared"], ["personalAccessTab", "personal"]]) $(id).addEventListener("click", () => {
@@ -132,11 +153,13 @@ const chatAccount = (() => {
   $("chatLoginForm").addEventListener("submit", (event) => { event.preventDefault(); action(async () => {
     const result = await request("/login", { method: "POST", body: { username: $("chatUsername").value.trim(), password: $("chatPassword").value } });
     token = result.token; user = result.user; $("chatPassword").value = "";
+    expiresAt = Number(result.expiresAt) || Math.floor(Date.now() / 1000) + 28800;
+    storeSession();
     render(); changed(); await refresh(); notice("登录成功，可以开始提问。");
   }); });
   $("chatLogout").addEventListener("click", () => action(async () => {
     await request("/logout", { method: "POST", body: {} });
-    token = ""; user = null; render(); changed(); notice("已退出登录。");
+    clearSession(); render(); changed(); notice("已退出登录。");
   }));
   $("chatCreateUser").addEventListener("submit", (event) => { event.preventDefault(); action(async () => {
     const data = Object.fromEntries(new FormData(event.target)); data.dailyLimit = Number(data.dailyLimit);
@@ -144,7 +167,7 @@ const chatAccount = (() => {
   }); });
   $("chatPasswordForm").addEventListener("submit", (event) => { event.preventDefault(); action(async () => {
     await request("/password", { method: "POST", body: Object.fromEntries(new FormData(event.target)) });
-    event.target.reset(); token = ""; user = null; render(); changed(); notice("密码已更新，所有设备已退出，请重新登录。");
+    event.target.reset(); clearSession(); render(); changed(); notice("密码已更新，所有设备已退出，请重新登录。");
   }); });
   $("chatSetupForm").addEventListener("submit", (event) => { event.preventDefault(); action(async () => {
     await request("/setup", { method: "POST", body: Object.fromEntries(new FormData(event.target)) });
@@ -152,6 +175,10 @@ const chatAccount = (() => {
   }); });
   $("chatAccountPanel").querySelectorAll("form").forEach((form) => { form.method = "post"; });
   render();
-  return { get mode() { return mode; }, get ready() { return Boolean(token); }, get username() { return user?.username || ""; }, request,
+  if (token) Promise.resolve().then(() => action(async () => {
+    notice("正在恢复登录…");
+    await refresh(); changed("restored"); notice("登录已恢复，可以继续提问。");
+  }));
+  return { get mode() { return mode; }, get ready() { return Boolean(token && user); }, get username() { return user?.username || ""; }, request,
     refresh: () => action(refresh), clearNotice: () => notice("") };
 })();

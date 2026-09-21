@@ -606,7 +606,12 @@ const productChatData = (() => {
   document.getElementById("sidebarAccount").addEventListener("click", () => settings(true));
   document.getElementById("sidebarNewChat").addEventListener("click", () => { newThread(); settings(false); });
   document.getElementById("chatMobileThreads").addEventListener("change", (event) => selectThread(threads[Number(event.target.value)]));
-  window.addEventListener("chat-account-change", () => {
+  window.addEventListener("chat-account-change", (event) => {
+    if (event.detail?.reason === "restored") {
+      settings(!accountPanel.hidden);
+      status(ready() ? `${chatAccount.username}，已恢复登录` : "请在账号设置中检测连接");
+      return;
+    }
     apiKey = "";
     ui.chatApiKey.value = "";
     if (controller) { clearThreadsAfterReply = true; controller.abort(); }
