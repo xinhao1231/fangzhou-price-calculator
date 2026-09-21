@@ -2232,6 +2232,7 @@ function calculateMixedFobForItems(items, container, mode = "mixed-share") {
   const totalCbm = lines.reduce((sum, line) => sum + line.totalCbm, 0);
   if (mode === "per-product") {
     lines.forEach((line) => {
+      if (line.nested) return;
       const singleFob = fobInfoForLogistics(line.logistics, container);
       line.freightPerUnit = singleFob?.cost || 0;
       line.freightTotal = line.freightPerUnit * line.quantity;
@@ -2240,16 +2241,10 @@ function calculateMixedFobForItems(items, container, mode = "mixed-share") {
     });
   } else {
     lines.forEach((line) => {
-      if (!totalCbm || !line.totalCbm) {
-        if (!line.nested) return;
-        const singleFob = fobInfoForLogistics(line.logistics, container);
-        line.freightPerUnit = singleFob?.cost || 0;
-        line.freightTotal = line.freightPerUnit * line.quantity;
-      } else {
-        line.freightShare = line.totalCbm / totalCbm;
-        line.freightTotal = container.price * line.freightShare;
-        line.freightPerUnit = line.freightTotal / line.quantity;
-      }
+      if (!totalCbm || !line.totalCbm) return;
+      line.freightShare = line.totalCbm / totalCbm;
+      line.freightTotal = container.price * line.freightShare;
+      line.freightPerUnit = line.freightTotal / line.quantity;
       line.fobUnitPrice = line.baseUnitCost + line.freightPerUnit;
       line.fobTotalPrice = line.fobUnitPrice * line.quantity;
     });
@@ -2316,7 +2311,7 @@ function renderMixedFob() {
     nestedInput.type = "checkbox";
     nestedInput.checked = line.nested;
     const nestedText = document.createElement("span");
-    nestedText.textContent = "嵌套不占CBM";
+    nestedText.textContent = "嵌套：不占CBM、不另计FOB";
     nestedInput.addEventListener("change", () => {
       const saved = state.mixedItems.find((item) => item.id === line.id);
       if (saved) saved.nested = nestedInput.checked;
@@ -2405,7 +2400,7 @@ function documentLines() {
     const container = currentContainer();
     const containerCapacity = cartonCbm && cartonQty ? (container.volume / cartonCbm) * cartonQty : 0;
     const perProductFob = fobInfoForLogistics(line.logistics, container);
-    const documentUnitRmb = usePerProductFob ? line.baseUnitCost + (perProductFob?.cost || 0) : line.fobUnitPrice;
+    const documentUnitRmb = usePerProductFob ? line.baseUnitCost + (line.nested ? 0 : perProductFob?.cost || 0) : line.fobUnitPrice;
     const unitUsd = documentUnitRmb / exchangeRate;
     const totalUsd = unitUsd * orderQty;
     const unitWeightKg = parseWeightKg(line.logistics?.unitWeight);
@@ -3136,7 +3131,7 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
     const cartonQtyFormula = cartonMultiplier === 1
       ? `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow})`
       : `IF(OR(N${startRow}="",E${startRow}="",E${startRow}=0),"",N${startRow}/E${startRow}*${cartonMultiplier})`;
-    const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
+    const initialPerProductFob = line.nested ? { cost: 0 } : fobInfoForLogistics(line.logistics, container);
     const baseUnitRmb = Number(line.baseUnitRmb);
     const hasInitialFob = Number.isFinite(baseUnitRmb) && Number.isFinite(initialPerProductFob?.cost);
     const initialFobRmb = hasInitialFob ? baseUnitRmb + initialPerProductFob.cost : "";
@@ -3150,7 +3145,7 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
       const valueCell = label === "RMB Price:"
         ? xlsxNumberCell(3, rowNumber, value, 3)
         : label === "FOB RMB Price:"
-          ? xlsxFormulaCell(3, rowNumber, `IF(OR(C${rmbPriceRow}="",L${startRow}="",L${startRow}=0),"",C${rmbPriceRow}+${containerFreightFormula}/L${startRow})`, initialFobRmb, 3)
+          ? xlsxFormulaCell(3, rowNumber, line.nested ? `IF(C${rmbPriceRow}="","",C${rmbPriceRow})` : `IF(OR(C${rmbPriceRow}="",L${startRow}="",L${startRow}=0),"",C${rmbPriceRow}+${containerFreightFormula}/L${startRow})`, initialFobRmb, 3)
           : xlsxStringCell(3, rowNumber, value, 3);
       const cells = {
         2: xlsxStringCell(2, rowNumber, label, 2),
@@ -3180,7 +3175,7 @@ function buildPackingListSheetXml(lines, settings, imageEntries) {
   const sumRangeEnd = Math.max(3, totalRow - 1);
   const totalCartonsByFormula = lines.reduce((sum, line) => sum + (Number(line.cartonCount) || 0), 0);
   const totalFobUsdByFormula = lines.reduce((sum, line) => {
-    const initialPerProductFob = fobInfoForLogistics(line.logistics, container);
+    const initialPerProductFob = line.nested ? { cost: 0 } : fobInfoForLogistics(line.logistics, container);
     const baseUnitRmb = Number(line.baseUnitRmb);
     if (!Number.isFinite(baseUnitRmb) || !Number.isFinite(initialPerProductFob?.cost)) return sum;
     return sum + ((baseUnitRmb + initialPerProductFob.cost) / exchangeRateFormulaValue) * line.orderQty;
